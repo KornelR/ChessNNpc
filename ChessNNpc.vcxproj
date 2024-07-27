@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{1ad82b8a-473d-49cf-822c-29557e9b05a4}</ProjectGuid>
+    <RootNamespace>ChessNNpc</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="ChessNNpc.cpp" />
+    <ClCompile Include="imgui\imgui.cpp" />
+    <ClCompile Include="imgui\imgui_demo.cpp" />
+    <ClCompile Include="imgui\imgui_draw.cpp" />
+    <ClCompile Include="imgui\imgui_impl_dx11.cpp" />
+    <ClCompile Include="imgui\imgui_impl_dx12.cpp" />
+    <ClCompile Include="imgui\imgui_impl_win32.cpp" />
+    <ClCompile Include="imgui\imgui_tables.cpp" />
+    <ClCompile Include="imgui\imgui_widgets.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="imgui\imconfig.h" />
+    <ClInclude Include="imgui\imgui.h" />
+    <ClInclude Include="imgui\imgui_impl_dx11.h" />
+    <ClInclude Include="imgui\imgui_impl_dx12.h" />
+    <ClInclude Include="imgui\imgui_impl_win32.h" />
+    <ClInclude Include="imgui\imgui_internal.h" />
+    <ClInclude Include="imgui\imstb_rectpack.h" />
+    <ClInclude Include="imgui\imstb_textedit.h" />
+    <ClInclude Include="imgui\imstb_truetype.h" />
+    <ClInclude Include="stb_image.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\..\..\..\Desktop\Chess png\bbb.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bbc.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bbd.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bbl.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bbt.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bkb.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bkc.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bkd.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bkl.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bkt.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bnb.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bnc.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bnd.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bnl.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bnt.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bpb.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bpc.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bpd.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bpl.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bpt.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bqb.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bqc.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bqd.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bql.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\bqt.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\brb.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\brc.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\brd.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\brl.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\brt.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\squareb.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\squarec.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\squared.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\squarel.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\squaret.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wbb.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wbc.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wbd.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wbl.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wbt.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wkb.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wkc.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wkd.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wkl.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wkt.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wnb.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wnc.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wnd.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wnl.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wnt.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wpb.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wpc.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wpd.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wpl.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wpt.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wqb.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wqc.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wqd.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wql.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wqt.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wrb.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wrc.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wrd.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wrl.png" />
+    <Image Include="..\..\..\..\Desktop\Chess png\wrt.png" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
