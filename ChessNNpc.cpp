@@ -4,16 +4,18 @@
 #include <d3d11.h>
 #include <tchar.h>
 #include <iostream>
+#include <wrl.h>
 
 #pragma comment(lib, "D3D11.lib")
 
-// Data
+//Nie moje, helper functions i statici
 static ID3D11Device* g_pd3dDevice = nullptr;
 static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
 static IDXGISwapChain* g_pSwapChain = nullptr;
 static bool                     g_SwapChainOccluded = false;
 static UINT                     g_ResizeWidth = 0, g_ResizeHeight = 0;
 static ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
+
 
 // Forward declarations of helper functions
 bool CreateDeviceD3D(HWND hWnd);
@@ -22,14 +24,280 @@ void CreateRenderTarget();
 void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
+int chessBoard[8][8];
+bool isChessSquareWhite[8][8] = 
+{
+    {true,false,true,false,true,false,true,false},
+    {false,true,false,true,false,true,false,true},
+    {true,false,true,false,true,false,true,false},
+    {false,true,false,true,false,true,false,true},
+    {true,false,true,false,true,false,true,false},
+    {false,true,false,true,false,true,false,true},
+    {true,false,true,false,true,false,true,false},
+    {false,true,false,true,false,true,false,true},
+};
+
+static int windowHeight = 700;
+static int windowWidth = 830;
+bool isGameStarted = false;
+bool isChessSquareViableMove[8][8];
+bool isChessPieceSelected = false;
+int selectedPieceX = 0;
+int selectedPieceY = 0;
+bool isHumanWhite = true;
+const int fenLength = 100;
+char FENinput[fenLength] = "";
+
+// White 0 ;=; Black 1
+// Pawn +10 +11
+// Knight +30 +31
+// Bishop +32 +33
+// Rook +50 +51
+// Queen +90 +91
+// King +100 + 101
+// 
+// 51 31 33 91 101 33 31 51
+// 11 11 11 11  11 11 11 11
+//  0  0  0  0   0  0  0  0
+//  0  0  0  0   0  0  0  0
+//  0  0  0  0   0  0  0  0
+//  0  0  0  0   0  0  0  0
+// 10 10 10 10  10 10 10 10
+// 50 30 32 90 100 32 30 50
+// 
+
+static void boardBeginWhite()
+{
+    chessBoard[0][0] = 51 , chessBoard[0][1] = 31, chessBoard[0][2] = 33, chessBoard[0][3] = 91;
+    chessBoard[0][4] = 101, chessBoard[0][5] = 33, chessBoard[0][6] = 31, chessBoard[0][7] = 51;
+    for (int i = 0; i < 8; i++)
+    {
+        chessBoard[1][i] = 11;
+        chessBoard[2][i] = 0;
+        chessBoard[3][i] = 0;
+        chessBoard[4][i] = 0;
+        chessBoard[5][i] = 0;
+        chessBoard[6][i] = 10;
+    }
+    chessBoard[7][0] = 50 , chessBoard[7][1] = 30, chessBoard[7][2] = 32, chessBoard[7][3] = 90;
+    chessBoard[7][4] = 100, chessBoard[7][5] = 32, chessBoard[7][6] = 30, chessBoard[7][7] = 50;
+    isHumanWhite = true;
+}
+
+static void boardReset()
+{
+    for (int w = 0; w < 8; w++)
+    {
+        for (int h = 0; h < 8; h++)
+        {
+            chessBoard[h][w] = 0;
+        }
+    }
+}
+
+static void boardFlip()
+{
+    int tempChessBoard[8][8];
+    for (int h = 0; h < 8; h++)
+    {
+        for (int w = 0; w < 8; w++)
+        {
+            tempChessBoard[h][w] = chessBoard[7-h][7-w];
+        }
+    }
+
+    for (int h = 0; h < 8; h++)
+    {
+        for (int w = 0; w < 8; w++)
+        {
+            chessBoard[h][w] = tempChessBoard[h][w];
+        }
+    }
+    if (isHumanWhite == true) { isHumanWhite = false; }
+    if (isHumanWhite == false) { isHumanWhite = true; }
+}
+
+static void resetisChessSquareViableMove()
+{
+    for (int w = 0; w < 8; w++)
+    {
+        for (int h = 0; h < 8; h++)
+        {
+            isChessSquareViableMove[h][w] = false;
+        }
+    }
+}
+
+static void testingBoardOut()
+{
+    std::cout << "\n";
+    for (int h = 0; h < 8; h++)
+    {
+        for (int w = 0; w < 8; w++)
+        {
+            std::cout << chessBoard[h][w] << "--";
+        }
+        std::cout << "\n";
+    }
+}
+
+static void fenToBoardPosition(char FenPos[fenLength])
+{
+    //TODO: dodaj sprawdzanie czy FEN jest ok
+
+    boardReset();
+    int chessBoardFENX = 0;
+    int chessBoardFENY = 0;
+
+    int i = 0;
+    for (; i < fenLength && FenPos[i] != ' '; i++)
+    {
+        switch (FenPos[i])
+        {
+        default:
+            chessBoardFENX++;
+            break;
+        case '/':
+            chessBoardFENX = 0;
+            chessBoardFENY++;
+            break;
+        case '1':
+            chessBoardFENX += 1;
+            break;
+        case '2':
+            chessBoardFENX += 2;
+            break;
+        case '3':
+            chessBoardFENX += 3;
+            break;
+        case '4':
+            chessBoardFENX += 4;
+            break;
+        case '5':
+            chessBoardFENX += 5;
+            break;
+        case '6':
+            chessBoardFENX += 6;
+            break;
+        case '7':
+            chessBoardFENX += 7;
+            break;
+        case '8':
+            chessBoardFENX += 8;
+            break;
+        case 'P':
+            chessBoard[chessBoardFENY][chessBoardFENX] = 10;
+            chessBoardFENX++;
+            break;
+        case 'p':
+            chessBoard[chessBoardFENY][chessBoardFENX] = 11;
+            chessBoardFENX++;
+            break;
+        case 'N':
+            chessBoard[chessBoardFENY][chessBoardFENX] = 30;
+            chessBoardFENX++;
+            break;
+        case 'n':
+            chessBoard[chessBoardFENY][chessBoardFENX] = 31;
+            chessBoardFENX++;
+            break;
+        case 'B':
+            chessBoard[chessBoardFENY][chessBoardFENX] = 32;
+            chessBoardFENX++;
+            break;
+        case 'b':
+            chessBoard[chessBoardFENY][chessBoardFENX] = 33;
+            chessBoardFENX++;
+            break;
+        case 'R':
+            chessBoard[chessBoardFENY][chessBoardFENX] = 50;
+            chessBoardFENX++;
+            break;
+        case 'r':
+            chessBoard[chessBoardFENY][chessBoardFENX] = 51;
+            chessBoardFENX++;
+            break;
+        case 'Q':
+            chessBoard[chessBoardFENY][chessBoardFENX] = 90;
+            chessBoardFENX++;
+            break;
+        case 'q':
+            chessBoard[chessBoardFENY][chessBoardFENX] = 91;
+            chessBoardFENX++;
+            break;
+        case 'K':
+            chessBoard[chessBoardFENY][chessBoardFENX] = 100;
+            chessBoardFENX++;
+            break;
+        case 'k':
+            chessBoard[chessBoardFENY][chessBoardFENX] = 101;
+            chessBoardFENX++;
+            break;
+        }
+    }
+    if (FenPos[i + 1] == 'b')
+    {
+        boardFlip();
+    }
+}
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+// Simple helper function to load an image into a DX11 texture with common settings
+bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_srv, int* out_width, int* out_height)
+{
+    // Load from disk into a raw RGBA buffer
+    int image_width = 0;
+    int image_height = 0;
+    unsigned char* image_data = stbi_load(filename, &image_width, &image_height, NULL, 4);
+    if (image_data == NULL)
+        return false;
+
+    // Create texture
+    D3D11_TEXTURE2D_DESC desc;
+    ZeroMemory(&desc, sizeof(desc));
+    desc.Width = image_width;
+    desc.Height = image_height;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.SampleDesc.Count = 1;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    desc.CPUAccessFlags = 0;
+
+    ID3D11Texture2D* pTexture = NULL;
+    D3D11_SUBRESOURCE_DATA subResource;
+    subResource.pSysMem = image_data;
+    subResource.SysMemPitch = desc.Width * 4;
+    subResource.SysMemSlicePitch = 0;
+    g_pd3dDevice->CreateTexture2D(&desc, &subResource, &pTexture);
+
+    // Create texture view
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+    ZeroMemory(&srvDesc, sizeof(srvDesc));
+    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = desc.MipLevels;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    g_pd3dDevice->CreateShaderResourceView(pTexture, &srvDesc, out_srv);
+    pTexture->Release();
+
+    *out_width = image_width;
+    *out_height = image_height;
+    stbi_image_free(image_data);
+
+    return true;
+}
+
 // Main code
 int main(int, char**)
 {
     // Create application window
     //ImGui_ImplWin32_EnableDpiAwareness();
-    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"ImGui Example", nullptr };
+    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"Engine", nullptr };
     ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX11 Example", WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, nullptr, nullptr, wc.hInstance, nullptr);
+    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Engine", WS_OVERLAPPEDWINDOW, 100, 100, windowWidth, windowHeight, nullptr, nullptr, wc.hInstance, nullptr);
 
     // Initialize Direct3D
     if (!CreateDeviceD3D(hwnd))
@@ -39,10 +307,15 @@ int main(int, char**)
         return 1;
     }
 
+    //Disabling Window Resizing
+    DWORD style = GetWindowLong(hwnd, GWL_STYLE);
+    style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+    SetWindowLong(hwnd, GWL_STYLE, style); 
+
     // Show the window
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
     ::UpdateWindow(hwnd);
-
+    
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -50,25 +323,40 @@ int main(int, char**)
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-
     // Setup Platform/Renderer backends
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+   
+    //Kolor
+    ImVec4 clear_color = ImVec4(0.5f, 0.5f, 0.5f, 1.00f);
 
-    // Our state
-    bool show_demo_window = true;
-    bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    //Ladowanie obrazkow
+    int my_image_width = 60;
+    int my_image_height = 60;
+    ID3D11ShaderResourceView* squareb = NULL; LoadTextureFromFile("assets/squareb.png", &squareb, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* squarec = NULL; LoadTextureFromFile("assets/squarec.png", &squarec, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* squared = NULL; LoadTextureFromFile("assets/squared.png", &squared, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* squarel = NULL; LoadTextureFromFile("assets/squarel.png", &squarel, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* bb = NULL; LoadTextureFromFile("assets/bb.png", &bb, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* bk = NULL; LoadTextureFromFile("assets/bk.png", &bk, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* bn = NULL; LoadTextureFromFile("assets/bn.png", &bn, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* bp = NULL; LoadTextureFromFile("assets/bp.png", &bp, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* bq = NULL; LoadTextureFromFile("assets/bq.png", &bq, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* br = NULL; LoadTextureFromFile("assets/br.png", &br, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* wb = NULL; LoadTextureFromFile("assets/wb.png", &wb, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* wk = NULL; LoadTextureFromFile("assets/wk.png", &wk, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* wn = NULL; LoadTextureFromFile("assets/wn.png", &wn, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* wp = NULL; LoadTextureFromFile("assets/wp.png", &wp, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* wq = NULL; LoadTextureFromFile("assets/wq.png", &wq, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* wr = NULL; LoadTextureFromFile("assets/wr.png", &wr, &my_image_width, &my_image_height);
+    
+    boardBeginWhite();
 
     // Main loop
     bool done = false;
     while (!done)
     {
         // Poll and handle messages (inputs, window resize, etc.)
-        // See the WndProc() function below for our to dispatch events to the Win32 backend.
         MSG msg;
         while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE))
         {
@@ -101,6 +389,149 @@ int main(int, char**)
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
+
+        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+        ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
+        ImGui::Begin("Chess", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
+
+
+        //Drawing Black and White Squares
+        int starterBoardPosX = 80;
+        int starterBoardPosY = 100;
+        for (int w = 0; w < 8; w++)
+        {
+            for (int h = 0; h < 8; h++)
+            {
+                ImGui::SetCursorPos(ImVec2((w*60)+starterBoardPosX, (h*60)+starterBoardPosY));
+                if (isChessSquareWhite[h][w] == true)
+                {
+                    ImGui::Image((void*)squarel, ImVec2(my_image_width, my_image_height));
+                }
+                else
+                {
+                    ImGui::Image((void*)squared, ImVec2(my_image_width, my_image_height));
+                }
+            }
+        }
+
+        //Drawing Viable Moves
+        for (int w = 0; w < 8; w++)
+        {
+            for (int h = 0; h < 8; h++)
+            {
+                ImGui::SetCursorPos(ImVec2((w * 60) + starterBoardPosX, (h * 60) + starterBoardPosY));
+                if (isChessSquareViableMove[h][w] == true)
+                {
+                    ImGui::Image((void*)squareb, ImVec2(my_image_width, my_image_height));
+                }
+            }
+        }
+
+        //Drawing Selected Square
+        if (isChessPieceSelected == true)
+        {
+            ImGui::SetCursorPos(ImVec2((selectedPieceX * 60) + starterBoardPosX, (selectedPieceY * 60) + starterBoardPosY));
+            ImGui::Image((void*)squarec, ImVec2(my_image_width, my_image_height));
+        }
+
+        //Drawing Chess Pieces
+        for (int w = 0; w < 8; w++)
+        {
+            for (int h = 0; h < 8; h++)
+            {
+                ImGui::SetCursorPos(ImVec2((w * 60) + starterBoardPosX, (h * 60) + starterBoardPosY));
+                switch (chessBoard[h][w])
+                {
+                default:
+                    break;
+                case 0:
+                    break;
+                case 10:
+                    ImGui::Image((void*)wp, ImVec2(my_image_width, my_image_height));
+                    break;
+                case 11:
+                    ImGui::Image((void*)bp, ImVec2(my_image_width, my_image_height));
+                    break;
+                case 30:
+                    ImGui::Image((void*)wn, ImVec2(my_image_width, my_image_height));
+                    break;
+                case 31:
+                    ImGui::Image((void*)bn, ImVec2(my_image_width, my_image_height));
+                    break;
+                case 32:
+                    ImGui::Image((void*)wb, ImVec2(my_image_width, my_image_height));
+                    break;
+                case 33:
+                    ImGui::Image((void*)bb, ImVec2(my_image_width, my_image_height));
+                    break;
+                case 50:
+                    ImGui::Image((void*)wr, ImVec2(my_image_width, my_image_height));
+                    break;
+                case 51:
+                    ImGui::Image((void*)br, ImVec2(my_image_width, my_image_height));
+                    break;
+                case 90:
+                    ImGui::Image((void*)wq, ImVec2(my_image_width, my_image_height));
+                    break;
+                case 91:
+                    ImGui::Image((void*)bq, ImVec2(my_image_width, my_image_height));
+                    break;
+                case 100:
+                    ImGui::Image((void*)wk, ImVec2(my_image_width, my_image_height));
+                    break;
+                case 101:
+                    ImGui::Image((void*)bk, ImVec2(my_image_width, my_image_height));
+                    break; 
+                }
+            }
+        }
+
+        ImGui::SetCursorPos(ImVec2(my_image_width*8 + starterBoardPosX + 30, my_image_height*4 + starterBoardPosY - 30));       
+        if (ImGui::Button("Flip Board", ImVec2(100, 60)))
+        {
+            if (isGameStarted == false)
+            {
+                boardFlip();
+            }
+        }
+
+        ImGui::SetCursorPos(ImVec2(my_image_width * 8 + starterBoardPosX + 160, my_image_height * 4 + starterBoardPosY - 30));
+        if (ImGui::Button("Reset", ImVec2(60, 60)))
+        {
+            
+        }
+
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY - 50));
+        ImGui::Text("Input new FEN position:");
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY - 30));
+        ImGui::SetNextItemWidth(480);
+        ImGui::InputText(" ", FENinput, fenLength);
+        
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY - 30));
+        if (ImGui::Button("Confirm FEN", ImVec2(100, 20)))
+        {
+            if (isGameStarted == false)
+            {
+                fenToBoardPosition(FENinput);
+                for (int i = 0; i < 100; i++)
+                {
+                    FENinput[i] = 0;
+                }
+            }
+        }
+
+        //Przed Widoczne przyciski
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.f, 0.f, 0.f, 0.f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.f, 0.f, 0.f, 0.f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.f, 0.f, 0.f, 0.f));
+        //Po niewidzialne przyciski
+
+        
+
+
+
+        ImGui::PopStyleColor(3);
+        ImGui::End();
 
         // Rendering
         ImGui::Render();
@@ -187,10 +618,6 @@ void CleanupRenderTarget()
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // Win32 message handler
-// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
-// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
-// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
-// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
