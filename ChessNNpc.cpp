@@ -8,7 +8,8 @@
 
 #pragma comment(lib, "D3D11.lib")
 
-//Nie moje, helper functions i statici
+
+//D311
 static ID3D11Device* g_pd3dDevice = nullptr;
 static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
 static IDXGISwapChain* g_pSwapChain = nullptr;
@@ -16,8 +17,6 @@ static bool                     g_SwapChainOccluded = false;
 static UINT                     g_ResizeWidth = 0, g_ResizeHeight = 0;
 static ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
 
-
-// Forward declarations of helper functions
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
 void CreateRenderTarget();
@@ -47,23 +46,26 @@ int selectedPieceY = 0;
 bool isHumanWhite = true;
 const int fenLength = 100;
 char FENinput[fenLength] = "";
+bool isHumanPlayingAgainstAI = false;
+bool isAITurnedOn = false;
+bool isWhitesTurn = true;
 
-// White 0 ;=; Black 1
-// Pawn +10 +11
-// Knight +30 +31
-// Bishop +32 +33
-// Rook +50 +51
-// Queen +90 +91
-// King +100 + 101
+//White 0 ;=; Black 1
+//Pawn +10 +11
+//Knight +30 +31
+//Bishop +32 +33
+//Rook +50 +51
+//Queen +90 +91
+//King +100 + 101
 // 
-// 51 31 33 91 101 33 31 51
-// 11 11 11 11  11 11 11 11
-//  0  0  0  0   0  0  0  0
-//  0  0  0  0   0  0  0  0
-//  0  0  0  0   0  0  0  0
-//  0  0  0  0   0  0  0  0
-// 10 10 10 10  10 10 10 10
-// 50 30 32 90 100 32 30 50
+//51 31 33 91 101 33 31 51
+//11 11 11 11  11 11 11 11
+// 0  0  0  0   0  0  0  0
+// 0  0  0  0   0  0  0  0
+// 0  0  0  0   0  0  0  0
+// 0  0  0  0   0  0  0  0
+//10 10 10 10  10 10 10 10
+//50 30 32 90 100 32 30 50
 // 
 
 static void boardBeginWhite()
@@ -95,6 +97,20 @@ static void boardReset()
     }
 }
 
+static void resetisChessSquareViableMove()
+{
+    selectedPieceX = 0;
+    selectedPieceY = 0;
+    isChessPieceSelected = false;
+    for (int w = 0; w < 8; w++)
+    {
+        for (int h = 0; h < 8; h++)
+        {
+            isChessSquareViableMove[h][w] = false;
+        }
+    }
+}
+
 static void boardFlip()
 {
     int tempChessBoard[8][8];
@@ -113,19 +129,17 @@ static void boardFlip()
             chessBoard[h][w] = tempChessBoard[h][w];
         }
     }
-    if (isHumanWhite == true) { isHumanWhite = false; }
-    if (isHumanWhite == false) { isHumanWhite = true; }
-}
 
-static void resetisChessSquareViableMove()
-{
-    for (int w = 0; w < 8; w++)
-    {
-        for (int h = 0; h < 8; h++)
-        {
-            isChessSquareViableMove[h][w] = false;
-        }
+    if (isHumanWhite == true) 
+    { 
+        isHumanWhite = false; 
     }
+    else if (isHumanWhite == false) 
+    {
+        isHumanWhite = true; 
+    }
+
+    resetisChessSquareViableMove();
 }
 
 static void testingBoardOut()
@@ -241,9 +255,990 @@ static void fenToBoardPosition(char FenPos[fenLength])
     }
 }
 
+static void updateViableMoves()
+{
+    if (isChessPieceSelected == true)
+    {
+        switch (chessBoard[selectedPieceY][selectedPieceX])
+        {
+            //White Pawn Movement:
+        case 10:
+            if (isHumanWhite == true)
+            {
+                //Double move
+                if (selectedPieceY == 6 && chessBoard[selectedPieceY - 2][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY - 2][selectedPieceX] = true; }
+                //Single move
+                if (chessBoard[selectedPieceY - 1][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true; }
+                //Attacking
+                if (selectedPieceX != 0)
+                {
+                    if (chessBoard[selectedPieceY - 1][selectedPieceX - 1] != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) != 2)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
+                    }
+                }
+                if (selectedPieceX != 7) {
+                    if (chessBoard[selectedPieceY - 1][selectedPieceX + 1] != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) != 2)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
+                    }
+                }
+            }
+            else
+            {
+                //Double move
+                if (selectedPieceY == 1 && chessBoard[selectedPieceY + 2][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY + 2][selectedPieceX] = true; }
+                //Single move
+                if (chessBoard[selectedPieceY + 1][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true; }
+                //Attacking
+                if (selectedPieceX != 0)
+                {
+                    if (chessBoard[selectedPieceY + 1][selectedPieceX - 1] != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) != 2)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
+                    }
+                }
+                if (selectedPieceX != 7) {
+                    if (chessBoard[selectedPieceY + 1][selectedPieceX + 1] != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) != 2)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
+                    }
+                }
+            }
+            break;
+            //Black Pawn Movement
+        case 11:
+            if (isHumanWhite == false)
+            {
+                //Double move
+                if (selectedPieceY == 6 && chessBoard[selectedPieceY - 2][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY - 2][selectedPieceX] = true; }
+                //Single move
+                if (chessBoard[selectedPieceY - 1][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true; }
+                //Attacking
+                if (selectedPieceX != 0)
+                {
+                    if (chessBoard[selectedPieceY - 1][selectedPieceX - 1] != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) != 1 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) != 3)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
+                    }
+                }
+                if (selectedPieceX != 7) {
+                    if (chessBoard[selectedPieceY - 1][selectedPieceX + 1] != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) != 1 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) != 3)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
+                    }
+                }
+            }
+            else
+            {
+                //Double move
+                if (selectedPieceY == 1 && chessBoard[selectedPieceY + 2][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY + 2][selectedPieceX] = true; }
+                //Single move
+                if (chessBoard[selectedPieceY + 1][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true; }
+                //Attacking
+                if (selectedPieceX != 0)
+                {
+                    if (chessBoard[selectedPieceY + 1][selectedPieceX - 1] != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) != 1 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) != 3)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
+                    }
+                }
+                if (selectedPieceX != 7) {
+                    if (chessBoard[selectedPieceY + 1][selectedPieceX + 1] != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) != 1 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) != 3)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
+                    }
+                }
+            }
+            break;
+            //White Knight Movement from Upper Right Corner Counterclockwise
+        case 30: // 
+            if (selectedPieceY > 1 && selectedPieceX < 7)
+            {
+                if (chessBoard[selectedPieceY - 2][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1] % 10) == 3)
+                {
+                    isChessSquareViableMove[selectedPieceY - 2][selectedPieceX + 1] = true;
+                }
+            }
+            if (selectedPieceY > 1 && selectedPieceX > 0)
+            {
+                if (chessBoard[selectedPieceY - 2][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1] % 10) == 3)
+                {
+                    isChessSquareViableMove[selectedPieceY - 2][selectedPieceX - 1] = true;
+                }
+            }
+            if (selectedPieceY > 0 && selectedPieceX > 1)
+            {
+                if (chessBoard[selectedPieceY - 1][selectedPieceX - 2] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2] % 10) == 3)
+                {
+                    isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 2] = true;
+                }
+            }
+            if (selectedPieceY < 7 && selectedPieceX > 1)
+            {
+                if (chessBoard[selectedPieceY + 1][selectedPieceX - 2] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2] % 10) == 3)
+                {
+                    isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 2] = true;
+                }
+            }
+            if (selectedPieceY < 6 && selectedPieceX > 0)
+            {
+                if (chessBoard[selectedPieceY + 2][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1] % 10) == 3)
+                {
+                    isChessSquareViableMove[selectedPieceY + 2][selectedPieceX - 1] = true;
+                }
+            }
+            if (selectedPieceY < 6 && selectedPieceX < 7)
+            {
+                if (chessBoard[selectedPieceY + 2][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1] % 10) == 3)
+                {
+                    isChessSquareViableMove[selectedPieceY + 2][selectedPieceX + 1] = true;
+                }
+            }
+            if (selectedPieceY < 7 && selectedPieceX < 6)
+            {
+                if (chessBoard[selectedPieceY + 1][selectedPieceX + 2] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2] % 10) == 3)
+                {
+                    isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 2] = true;
+                }
+            }
+            if (selectedPieceY > 0 && selectedPieceX < 6)
+            {
+                if (chessBoard[selectedPieceY - 1][selectedPieceX + 2] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2] % 10) == 3)
+                {
+                    isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 2] = true;
+                }
+            }
+            break;
+            //Black Knight Movement from Upper Right Corner Counterclockwise
+        case 31:
+            if (selectedPieceY > 1 && selectedPieceX < 7)
+            {
+                if (chessBoard[selectedPieceY - 2][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1] % 10) == 2)
+                {
+                    isChessSquareViableMove[selectedPieceY - 2][selectedPieceX + 1] = true;
+                }
+            }
+            if (selectedPieceY > 1 && selectedPieceX > 0)
+            {
+                if (chessBoard[selectedPieceY - 2][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1] % 10) == 2)
+                {
+                    isChessSquareViableMove[selectedPieceY - 2][selectedPieceX - 1] = true;
+                }
+            }
+            if (selectedPieceY > 0 && selectedPieceX > 1)
+            {
+                if (chessBoard[selectedPieceY - 1][selectedPieceX - 2] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2] % 10) == 2)
+                {
+                    isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 2] = true;
+                }
+            }
+            if (selectedPieceY < 7 && selectedPieceX > 1)
+            {
+                if (chessBoard[selectedPieceY + 1][selectedPieceX - 2] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2] % 10) == 2)
+                {
+                    isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 2] = true;
+                }
+            }
+            if (selectedPieceY < 6 && selectedPieceX > 0)
+            {
+                if (chessBoard[selectedPieceY + 2][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1] % 10) == 2)
+                {
+                    isChessSquareViableMove[selectedPieceY + 2][selectedPieceX - 1] = true;
+                }
+            }
+            if (selectedPieceY < 6 && selectedPieceX < 7)
+            {
+                if (chessBoard[selectedPieceY + 2][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1] % 10) == 2)
+                {
+                    isChessSquareViableMove[selectedPieceY + 2][selectedPieceX + 1] = true;
+                }
+            }
+            if (selectedPieceY < 7 && selectedPieceX < 6)
+            {
+                if (chessBoard[selectedPieceY + 1][selectedPieceX + 2] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2] % 10) == 2)
+                {
+                    isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 2] = true;
+                }
+            }
+            if (selectedPieceY > 0 && selectedPieceX < 6)
+            {
+                if (chessBoard[selectedPieceY - 1][selectedPieceX + 2] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2] % 10) == 2)
+                {
+                    isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 2] = true;
+                }
+            }
+            break;
+            //White Bishop Movement from Upper Right Corner Counterclockwise
+        case 32:
+        {
+            int tempX = selectedPieceX + 1;
+            int tempY = selectedPieceY - 1;
+            while (tempY >= 0 && tempX <= 7)
+            {
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX++;
+                tempY--;
+            }
+            tempX = selectedPieceX - 1;
+            tempY = selectedPieceY - 1;
+            while (tempY >= 0 && tempX >= 0)
+            {
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX--;
+                tempY--;
+            }
+            tempX = selectedPieceX - 1;
+            tempY = selectedPieceY + 1;
+            while (tempY <= 7 && tempX >= 0)
+            {
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX--;
+                tempY++;
+            }
+            tempX = selectedPieceX + 1;
+            tempY = selectedPieceY + 1;
+            while (tempY <= 7 && tempX <= 7)
+            {
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX++;
+                tempY++;
+            }
+            break;
+        }
+//Black Bishop Movement from Upper Right Corner Counterclockwise
+        case 33:
+        {
+            int tempX = selectedPieceX + 1;
+            int tempY = selectedPieceY - 1;
+            while (tempY >= 0 && tempX <= 7)
+            {
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX++;
+                tempY--;
+            }
+            tempX = selectedPieceX - 1;
+            tempY = selectedPieceY - 1;
+            while (tempY >= 0 && tempX >= 0)
+            {
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX--;
+                tempY--;
+            }
+            tempX = selectedPieceX - 1;
+            tempY = selectedPieceY + 1;
+            while (tempY <= 7 && tempX >= 0)
+            {
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX--;
+                tempY++;
+            }
+            tempX = selectedPieceX + 1;
+            tempY = selectedPieceY + 1;
+            while (tempY <= 7 && tempX <= 7)
+            {
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX++;
+                tempY++;
+            }
+            break;
+        }
+
+//White Queen Bishop
+        case 90:
+        {
+            int tempX = selectedPieceX + 1;
+            int tempY = selectedPieceY - 1;
+            while (tempY >= 0 && tempX <= 7)
+            {
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX++;
+                tempY--;
+            }
+            tempX = selectedPieceX - 1;
+            tempY = selectedPieceY - 1;
+            while (tempY >= 0 && tempX >= 0)
+            {
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX--;
+                tempY--;
+            }
+            tempX = selectedPieceX - 1;
+            tempY = selectedPieceY + 1;
+            while (tempY <= 7 && tempX >= 0)
+            {
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX--;
+                tempY++;
+            }
+            tempX = selectedPieceX + 1;
+            tempY = selectedPieceY + 1;
+            while (tempY <= 7 && tempX <= 7)
+            {
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX++;
+                tempY++;
+            }
+//White Queen Rook
+            {   //up
+                int tempY = selectedPieceY - 1;
+                while (tempY >= 0)
+                {
+                    if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        break;
+                    }
+                    if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                    {
+                        break;
+                    }
+
+                    if (chessBoard[tempY][selectedPieceX] == 0)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    }
+                    tempY--;
+                }
+                tempY = selectedPieceY + 1;
+                //down
+                while (tempY <= 7)
+                {
+                    if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        break;
+                    }
+                    if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                    {
+                        break;
+                    }
+
+                    if (chessBoard[tempY][selectedPieceX] == 0)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    }
+                    tempY++;
+                }
+                //left
+                int tempX = selectedPieceX - 1;
+                while (tempX >= 0)
+                {
+                    if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        break;
+                    }
+                    if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                    {
+                        break;
+                    }
+
+                    if (chessBoard[selectedPieceY][tempX] == 0)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    }
+                    tempX--;
+                }
+                tempX = selectedPieceX + 1;
+                //right
+                while (tempX <= 7)
+                {
+                    if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        break;
+                    }
+                    if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                    {
+                        break;
+                    }
+
+                    if (chessBoard[selectedPieceY][tempX] == 0)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    }
+                    tempX++;
+                }
+            }
+            break;
+        }
+//Black Queen Bishop
+        case 91:
+        {
+            int tempX = selectedPieceX + 1;
+            int tempY = selectedPieceY - 1;
+            while (tempY >= 0 && tempX <= 7)
+            {
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX++;
+                tempY--;
+            }
+            tempX = selectedPieceX - 1;
+            tempY = selectedPieceY - 1;
+            while (tempY >= 0 && tempX >= 0)
+            {
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX--;
+                tempY--;
+            }
+            tempX = selectedPieceX - 1;
+            tempY = selectedPieceY + 1;
+            while (tempY <= 7 && tempX >= 0)
+            {
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX--;
+                tempY++;
+            }
+            tempX = selectedPieceX + 1;
+            tempY = selectedPieceY + 1;
+            while (tempY <= 7 && tempX <= 7)
+            {
+                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                    break;
+                }
+                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][tempX] == 0)
+                {
+                    isChessSquareViableMove[tempY][tempX] = true;
+                }
+                tempX++;
+                tempY++;
+            }
+//Black Queen Rook
+            {   //up
+                int tempY = selectedPieceY - 1;
+                while (tempY >= 0)
+                {
+                    if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        break;
+                    }
+                    if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                    {
+                        break;
+                    }
+
+                    if (chessBoard[tempY][selectedPieceX] == 0)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    }
+                    tempY--;
+                }
+                tempY = selectedPieceY + 1;
+                //down
+                while (tempY <= 7)
+                {
+                    if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        break;
+                    }
+                    if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                    {
+                        break;
+                    }
+
+                    if (chessBoard[tempY][selectedPieceX] == 0)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    }
+                    tempY++;
+                }
+                //left
+                int tempX = selectedPieceX - 1;
+                while (tempX >= 0)
+                {
+                    if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        break;
+                    }
+                    if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                    {
+                        break;
+                    }
+
+                    if (chessBoard[selectedPieceY][tempX] == 0)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    }
+                    tempX--;
+                }
+                tempX = selectedPieceX + 1;
+                //right
+                while (tempX <= 7)
+                {
+                    if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        break;
+                    }
+                    if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                    {
+                        break;
+                    }
+
+                    if (chessBoard[selectedPieceY][tempX] == 0)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    }
+                    tempX++;
+                }
+            }
+            break;
+        }
+//White Rook
+        case 50:
+        {   //up
+            int tempY = selectedPieceY - 1;
+            while (tempY >= 0)
+            {
+                if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                {
+                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    break;
+                }
+                if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][selectedPieceX] == 0)
+                {
+                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                }
+                tempY--;
+            }
+            tempY = selectedPieceY + 1;
+            //down
+            while (tempY <= 7)
+            {
+                if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                {
+                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    break;
+                }
+                if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][selectedPieceX] == 0)
+                {
+                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                }
+                tempY++;
+            }
+            //left
+            int tempX = selectedPieceX - 1;
+            while (tempX >= 0)
+            {
+                if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                {
+                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    break;
+                }
+                if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                {
+                    break;
+                }
+
+                if (chessBoard[selectedPieceY][tempX] == 0)
+                {
+                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                }
+                tempX--;
+            }
+            tempX = selectedPieceX + 1;
+            //right
+            while (tempX <= 7)
+            {
+                if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                {
+                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    break;
+                }
+                if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                {
+                    break;
+                }
+
+                if (chessBoard[selectedPieceY][tempX] == 0)
+                {
+                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                }
+                tempX++;
+            }
+        }
+            break;
+//Black Rook
+        case 51:
+        {   //up
+            int tempY = selectedPieceY - 1;
+            while (tempY >= 0)
+            {
+                if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                {
+                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    break;
+                }
+                if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][selectedPieceX] == 0)
+                {
+                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                }
+                tempY--;
+            }
+            tempY = selectedPieceY + 1;
+            //down
+            while (tempY <= 7)
+            {
+                if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                {
+                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    break;
+                }
+                if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                {
+                    break;
+                }
+
+                if (chessBoard[tempY][selectedPieceX] == 0)
+                {
+                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                }
+                tempY++;
+            }
+            //left
+            int tempX = selectedPieceX - 1;
+            while (tempX >= 0)
+            {
+                if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                {
+                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    break;
+                }
+                if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                {
+                    break;
+                }
+
+                if (chessBoard[selectedPieceY][tempX] == 0)
+                {
+                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                }
+                tempX--;
+            }
+            tempX = selectedPieceX + 1;
+            //right
+            while (tempX <= 7)
+            {
+                if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                {
+                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    break;
+                }
+                if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                {
+                    break;
+                }
+
+                if (chessBoard[selectedPieceY][tempX] == 0)
+                {
+                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                }
+                tempX++;
+            }
+        }
+        break;
+//White King from Upper Right Counterclockwise
+        case 100:
+        {
+            if (selectedPieceY > 0 && selectedPieceX < 7 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) == 3))
+            {
+                isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
+            }
+            if (selectedPieceY > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX] % 10) == 3))
+            {
+                isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true;
+            }
+            if (selectedPieceY > 0 && selectedPieceX > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) == 3))
+            {
+                isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
+            }
+            if (selectedPieceX > 0 && (chessBoard[selectedPieceY][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY][selectedPieceX - 1] % 10) == 3))
+            {
+                isChessSquareViableMove[selectedPieceY][selectedPieceX - 1] = true;
+            }
+            if (selectedPieceY < 7 && selectedPieceX > 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) == 3))
+            {
+                isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
+            }
+            if (selectedPieceY < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX] % 10) == 3))
+            {
+                isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true;
+            }
+            if (selectedPieceY < 7 && selectedPieceX < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) == 3))
+            {
+                isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
+            }
+            if (selectedPieceX < 7 && (chessBoard[selectedPieceY][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY][selectedPieceX + 1] % 10) == 3))
+            {
+                isChessSquareViableMove[selectedPieceY][selectedPieceX + 1] = true;
+            }
+        }
+        break;
+//Black King from Upper Right Counterclockwise
+        case 101:
+        {
+            if (selectedPieceY > 0 && selectedPieceX < 7 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) == 2))
+            {
+                isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
+            }
+            if (selectedPieceY > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX] % 10) == 2))
+            {
+                isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true;
+            }
+            if (selectedPieceY > 0 && selectedPieceX > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) == 2))
+            {
+                isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
+            }
+            if (selectedPieceX > 0 && (chessBoard[selectedPieceY][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY][selectedPieceX - 1] % 10) == 2))
+            {
+                isChessSquareViableMove[selectedPieceY][selectedPieceX - 1] = true;
+            }
+            if (selectedPieceY < 7 && selectedPieceX > 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) == 2))
+            {
+                isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
+            }
+            if (selectedPieceY < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX] % 10) == 2))
+            {
+                isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true;
+            }
+            if (selectedPieceY < 7 && selectedPieceX < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) == 2))
+            {
+                isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
+            }
+            if (selectedPieceX < 7 && (chessBoard[selectedPieceY][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY][selectedPieceX + 1] % 10) == 2))
+            {
+                isChessSquareViableMove[selectedPieceY][selectedPieceX + 1] = true;
+            }
+        }
+        break;
+        }
+    }
+}
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-// Simple helper function to load an image into a DX11 texture with common settings
+
 bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_srv, int* out_width, int* out_height)
 {
     // Load from disk into a raw RGBA buffer
@@ -290,16 +1285,15 @@ bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_sr
     return true;
 }
 
-// Main code
+//Main
 int main(int, char**)
 {
-    // Create application window
-    //ImGui_ImplWin32_EnableDpiAwareness();
+    //Create application window
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"Engine", nullptr };
     ::RegisterClassExW(&wc);
     HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Engine", WS_OVERLAPPEDWINDOW, 100, 100, windowWidth, windowHeight, nullptr, nullptr, wc.hInstance, nullptr);
 
-    // Initialize Direct3D
+    //Initialize Direct3D
     if (!CreateDeviceD3D(hwnd))
     {
         CleanupDeviceD3D();
@@ -307,30 +1301,29 @@ int main(int, char**)
         return 1;
     }
 
-    //Disabling Window Resizing
+    //Disabling Host Window Resizing
     DWORD style = GetWindowLong(hwnd, GWL_STYLE);
     style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
     SetWindowLong(hwnd, GWL_STYLE, style); 
 
-    // Show the window
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
     ::UpdateWindow(hwnd);
     
-    // Setup Dear ImGui context
+    //Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     //Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      //Enable Gamepad Controls
 
-    // Setup Platform/Renderer backends
+    //Setup Platform/Renderer backends
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
    
-    //Kolor
+    //Color
     ImVec4 clear_color = ImVec4(0.5f, 0.5f, 0.5f, 1.00f);
 
-    //Ladowanie obrazkow
+    //Loading assets
     int my_image_width = 60;
     int my_image_height = 60;
     ID3D11ShaderResourceView* squareb = NULL; LoadTextureFromFile("assets/squareb.png", &squareb, &my_image_width, &my_image_height);
@@ -352,11 +1345,13 @@ int main(int, char**)
     
     boardBeginWhite();
 
-    // Main loop
+    //Main loop
     bool done = false;
     while (!done)
     {
-        // Poll and handle messages (inputs, window resize, etc.)
+        //Required
+        
+        //Poll and handle messages (inputs, window resize, etc.)
         MSG msg;
         while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE))
         {
@@ -368,7 +1363,7 @@ int main(int, char**)
         if (done)
             break;
 
-        // Handle window being minimized or screen locked
+        //Handle window being minimized or screen locked
         if (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
         {
             ::Sleep(10);
@@ -376,7 +1371,7 @@ int main(int, char**)
         }
         g_SwapChainOccluded = false;
 
-        // Handle window resize (we don't resize directly in the WM_SIZE handler)
+        //Handle window resize
         if (g_ResizeWidth != 0 && g_ResizeHeight != 0)
         {
             CleanupRenderTarget();
@@ -385,7 +1380,7 @@ int main(int, char**)
             CreateRenderTarget();
         }
 
-        // Start the Dear ImGui frame
+        //Start the Dear ImGui frame
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
@@ -393,7 +1388,6 @@ int main(int, char**)
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
         ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
         ImGui::Begin("Chess", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
-
 
         //Drawing Black and White Squares
         int starterBoardPosX = 80;
@@ -486,19 +1480,26 @@ int main(int, char**)
             }
         }
 
-        ImGui::SetCursorPos(ImVec2(my_image_width*8 + starterBoardPosX + 30, my_image_height*4 + starterBoardPosY - 30));       
-        if (ImGui::Button("Flip Board", ImVec2(100, 60)))
+        //Buttons
+        if (isGameStarted == false)
         {
-            if (isGameStarted == false)
+            ImGui::SetCursorPos(ImVec2(my_image_width * 8 + starterBoardPosX + 30, my_image_height * 4 + starterBoardPosY - 30));
+            if (ImGui::Button("Flip Board", ImVec2(100, 60)))
             {
                 boardFlip();
             }
         }
-
         ImGui::SetCursorPos(ImVec2(my_image_width * 8 + starterBoardPosX + 160, my_image_height * 4 + starterBoardPosY - 30));
         if (ImGui::Button("Reset", ImVec2(60, 60)))
         {
-            
+            isGameStarted = false;
+            boardReset();
+            boardBeginWhite();
+            isHumanWhite = true;
+            isHumanPlayingAgainstAI = false;
+            isAITurnedOn = false;
+            resetisChessSquareViableMove();
+            isWhitesTurn = true;
         }
 
         ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY - 50));
@@ -520,33 +1521,167 @@ int main(int, char**)
             }
         }
 
-        //Przed Widoczne przyciski
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.f, 0.f, 0.f, 0.f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.f, 0.f, 0.f, 0.f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.f, 0.f, 0.f, 0.f));
-        //Po niewidzialne przyciski
+       
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX +510, starterBoardPosY+120));
+        ImGui::Checkbox("Start AI from here", &isAITurnedOn);
 
-        
+        if (isAITurnedOn == true || isHumanPlayingAgainstAI == true)
+        {
+            isAITurnedOn = true;
+            isHumanPlayingAgainstAI = true;
+            if (isGameStarted == false && isHumanWhite == false)
+            {
+                isChessPieceSelected = false;
+            }
+        }
+      
+        if (isAITurnedOn == true)
+        {
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 160));
+            ImGui::Text("You are playing against AI.");
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 180));
+            ImGui::Text("Good Luck.");
+        }
+        else
+        {
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 160));
+            ImGui::Text("You are playing against You.");
+        }
+//Text
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 300));
+            ImGui::Text("Game starts after first move.");
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 320));
+            ImGui::Text("Once the game is started you");
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 340));
+            ImGui::Text("cant switch sides but you");
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 360));
+            ImGui::Text("can at any time turn on AI.");
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 380));
+            ImGui::Text("After that you play against it");
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 400));
+            ImGui::Text("to the end of the game.");
+
+            if (isHumanWhite == true)
+            {
+                ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY + 485));
+                ImGui::Text("You are playing with white.");
+            }
+            else
+            {
+                ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY + 485));
+                ImGui::Text("You are playing with black.");
+            }
+
+        //Moving Chess Pieces
+        ImVec2 mousePosition = ImGui::GetMousePos();   
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && mousePosition.x > 80 && mousePosition.x < 560 && mousePosition.y > 100 && mousePosition.y < 580)
+        {
+            int X = (mousePosition.x - 80)/60;
+            int Y = (mousePosition.y - 100)/60;
+
+            //Piece Move for both colors
+            if (isChessPieceSelected == true && isChessSquareViableMove[Y][X] == true)
+            {
+                int whatPieceToMove = chessBoard[selectedPieceY][selectedPieceX];
+                chessBoard[selectedPieceY][selectedPieceX] = 0;
+                chessBoard[Y][X] = whatPieceToMove;
+                if (isGameStarted == false){isGameStarted = true;}
+                resetisChessSquareViableMove();
+
+                if (isWhitesTurn == true) { isWhitesTurn = false; }
+                else { isWhitesTurn = true; }
+            }
+        //
+            if (isAITurnedOn == false)
+            {
+                //For White
+                //Piece Deselection
+                if (isWhitesTurn == true && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
+                {
+                    isChessPieceSelected = false;
+                    resetisChessSquareViableMove();
+                }
+                //Piece Selection
+                if (isWhitesTurn == true && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 0 || chessBoard[Y][X] % 10 == 2))
+                {
+                    isChessPieceSelected = true;
+                    selectedPieceX = X;
+                    selectedPieceY = Y;
+                    updateViableMoves();
+                }
+
+                //For Black
+                //Piece Deselection
+                if (isWhitesTurn == false && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
+                {
+                    isChessPieceSelected = false;
+                    resetisChessSquareViableMove();
+                }
+                //Piece Selection
+                if (isWhitesTurn == false && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 1 || chessBoard[Y][X] % 10 == 3))
+                {
+                    isChessPieceSelected = true;
+                    selectedPieceX = X;
+                    selectedPieceY = Y;
+                    updateViableMoves();
+
+                }
+            }
+        //
+            if (isAITurnedOn == true)
+            {
+                //For White
+                //Piece Deselection
+                if (isWhitesTurn == true && isHumanWhite == true && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
+                {
+                    isChessPieceSelected = false;
+                    resetisChessSquareViableMove();
+                }
+                //Piece Selection
+                if (isWhitesTurn == true && isHumanWhite == true && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 0 || chessBoard[Y][X] % 10 == 2))
+                {
+                    isChessPieceSelected = true;
+                    selectedPieceX = X;
+                    selectedPieceY = Y;
+                    updateViableMoves();
+                }
+
+                //For Black
+                //Piece Deselection
+                if (isWhitesTurn == false && isHumanWhite == false && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
+                {
+                    isChessPieceSelected = false;
+                    resetisChessSquareViableMove();
+                }
+                //Piece Selection
+                if (isWhitesTurn == false && isHumanWhite == false && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 1 || chessBoard[Y][X] % 10 == 3))
+                {
+                    isChessPieceSelected = true;
+                    selectedPieceX = X;
+                    selectedPieceY = Y;
+                    updateViableMoves();
+
+                }
+            }
+
+        }
 
 
 
-        ImGui::PopStyleColor(3);
         ImGui::End();
-
-        // Rendering
+        //Rendering
         ImGui::Render();
         const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
         g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
         g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
-        // Present
-        HRESULT hr = g_pSwapChain->Present(1, 0);   // Present with vsync
-        //HRESULT hr = g_pSwapChain->Present(0, 0); // Present without vsync
+        //Present
+        HRESULT hr = g_pSwapChain->Present(1, 0);
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
     }
 
-    // Cleanup
+    //Cleanup
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
@@ -558,7 +1693,7 @@ int main(int, char**)
     return 0;
 }
 
-// Helper functions
+//Helper functions
 
 bool CreateDeviceD3D(HWND hWnd)
 {
@@ -580,11 +1715,10 @@ bool CreateDeviceD3D(HWND hWnd)
     sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 
     UINT createDeviceFlags = 0;
-    //createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
     D3D_FEATURE_LEVEL featureLevel;
     const D3D_FEATURE_LEVEL featureLevelArray[2] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0, };
     HRESULT res = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags, featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice, &featureLevel, &g_pd3dDeviceContext);
-    if (res == DXGI_ERROR_UNSUPPORTED) // Try high-performance WARP software driver if hardware is not available.
+    if (res == DXGI_ERROR_UNSUPPORTED)
         res = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, createDeviceFlags, featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice, &featureLevel, &g_pd3dDeviceContext);
     if (res != S_OK)
         return false;
@@ -614,10 +1748,10 @@ void CleanupRenderTarget()
     if (g_mainRenderTargetView) { g_mainRenderTargetView->Release(); g_mainRenderTargetView = nullptr; }
 }
 
-// Forward declare message handler from imgui_impl_win32.cpp
+//Forward declare message handler
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-// Win32 message handler
+//Win32 message handler
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
@@ -628,11 +1762,11 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_SIZE:
         if (wParam == SIZE_MINIMIZED)
             return 0;
-        g_ResizeWidth = (UINT)LOWORD(lParam); // Queue resize
+        g_ResizeWidth = (UINT)LOWORD(lParam); //Queue resize
         g_ResizeHeight = (UINT)HIWORD(lParam);
         return 0;
     case WM_SYSCOMMAND:
-        if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
+        if ((wParam & 0xfff0) == SC_KEYMENU) //Disable ALT application menu
             return 0;
         break;
     case WM_DESTROY:
@@ -641,3 +1775,12 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     }
     return ::DefWindowProcW(hWnd, msg, wParam, lParam);
 }
+
+//Invisible buttons
+//ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.f, 0.f, 0.f, 0.f));
+//ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.f, 0.f, 0.f, 0.f));
+//ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.f, 0.f, 0.f, 0.f));
+//
+// 
+// 
+//ImGui::PopStyleColor(3);
