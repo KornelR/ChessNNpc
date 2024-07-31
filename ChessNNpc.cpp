@@ -261,6 +261,55 @@ static void fenToBoardPosition(char FenPos[fenLength])
     }
 }
 
+static void updatePawnToQueenPromotion()
+{
+    if (isHumanWhite == true)
+    {
+        for (int w = 0; w < 8; w++)
+        {
+            if (chessBoard[0][w] == 10)
+            {
+                chessBoard[0][w] = 90;
+            }
+
+            if (chessBoard[7][w] == 11)
+            {
+                chessBoard[7][w] = 91;
+            }
+        }
+    }
+    else
+    {
+        for (int w = 0; w < 8; w++)
+        {
+            if (chessBoard[7][w] == 10)
+            {
+                chessBoard[7][w] = 90;
+            }
+
+            if (chessBoard[0][w] == 11)
+            {
+                chessBoard[0][w] = 91;
+            }
+        }
+    }
+}
+
+static void makeHypotheticalMove(int fromY, int fromX, int toY, int toX)
+{
+    isMoveHypothetical = true;
+
+    for (int h = 0; h < 8; h++)
+    {
+        for (int w = 0; w < 8; w++)
+        {
+            hypotheticalBoard[h][w] = chessBoard[h][w];
+        }
+    }
+    hypotheticalBoard[toY][toX] = hypotheticalBoard[fromY][fromX];
+    hypotheticalBoard[fromY][fromX] = 0;
+}
+
 static void resetDangerSquares()
 {
     for (int h = 0; h < 8; h++)
@@ -299,6 +348,7 @@ static void updateDangerSquares()
     }
 
 
+
     for (int h = 0; h < 8; h++)
     {
         for (int w = 0; w < 8; w++)
@@ -313,32 +363,23 @@ static void updateDangerSquares()
                         {
                             if (w != 0)
                             {
-                                if (temporaryChessBoard[h - 1][w - 1] != 0 && (temporaryChessBoard[h - 1][w - 1] % 10) != 0 && (temporaryChessBoard[h - 1][w - 1] % 10) != 2)
-                                {
-                                    dangerSquaresForBlackKing[h - 1][w - 1] = true;
-                                }
+                                dangerSquaresForBlackKing[h - 1][w - 1] = true;
                             }
-                            if (w != 7) {
-                                if (temporaryChessBoard[h - 1][w + 1] != 0 && (temporaryChessBoard[h - 1][w + 1] % 10) != 0 && (temporaryChessBoard[h - 1][w + 1] % 10) != 2)
-                                {
-                                    dangerSquaresForBlackKing[h - 1][w + 1] = true;
-                                }
+                            if (w != 7)
+                            {
+                                dangerSquaresForBlackKing[h - 1][w + 1] = true;
                             }
                         }
                         else
                         {
                             if (w != 0)
                             {
-                                if (temporaryChessBoard[h + 1][w - 1] != 0 && (temporaryChessBoard[h + 1][w - 1] % 10) != 0 && (temporaryChessBoard[h + 1][w - 1] % 10) != 2)
-                                {
-                                    dangerSquaresForBlackKing[h + 1][w - 1] = true;
-                                }
+                                dangerSquaresForBlackKing[h + 1][w - 1] = true;
                             }
-                            if (w != 7) {
-                                if (temporaryChessBoard[h + 1][w + 1] != 0 && (temporaryChessBoard[h + 1][w + 1] % 10) != 0 && (temporaryChessBoard[h + 1][w + 1] % 10) != 2)
-                                {
-                                    dangerSquaresForBlackKing[h + 1][w + 1] = true;
-                                }
+
+                            if (w != 7) 
+                            {                         
+                                dangerSquaresForBlackKing[h + 1][w + 1] = true;
                             }
                         }
                         break;
@@ -346,59 +387,35 @@ static void updateDangerSquares()
                     case 30:
                         if (h > 1 && w < 7)
                         {
-                            if (temporaryChessBoard[h - 2][w + 1] == 0 || (temporaryChessBoard[h - 2][w + 1] % 10) == 1 || (temporaryChessBoard[h - 2][w + 1] % 10) == 3)
-                            {
-                                dangerSquaresForBlackKing[h - 2][w + 1] = true;
-                            }
+                            dangerSquaresForBlackKing[h - 2][w + 1] = true;
                         }
                         if (h > 1 && w > 0)
                         {
-                            if (temporaryChessBoard[h - 2][w - 1] == 0 || (temporaryChessBoard[h - 2][w - 1] % 10) == 1 || (temporaryChessBoard[h - 2][w - 1] % 10) == 3)
-                            {
-                                dangerSquaresForBlackKing[h - 2][w - 1] = true;
-                            }
+                            dangerSquaresForBlackKing[h - 2][w - 1] = true;
                         }
                         if (h > 0 && w > 1)
                         {
-                            if (temporaryChessBoard[h - 1][w - 2] == 0 || (temporaryChessBoard[h - 1][w - 2] % 10) == 1 || (temporaryChessBoard[h - 1][w - 2] % 10) == 3)
-                            {
-                                dangerSquaresForBlackKing[h - 1][w - 2] = true;
-                            }
+                            dangerSquaresForBlackKing[h - 1][w - 2] = true;
                         }
                         if (h < 7 && w > 1)
                         {
-                            if (temporaryChessBoard[h + 1][w - 2] == 0 || (temporaryChessBoard[h + 1][w - 2] % 10) == 1 || (temporaryChessBoard[h + 1][w - 2] % 10) == 3)
-                            {
-                                dangerSquaresForBlackKing[h + 1][w - 2] = true;
-                            }
+                            dangerSquaresForBlackKing[h + 1][w - 2] = true;
                         }
                         if (h < 6 && w > 0)
                         {
-                            if (temporaryChessBoard[h + 2][w - 1] == 0 || (temporaryChessBoard[h + 2][w - 1] % 10) == 1 || (temporaryChessBoard[h + 2][w - 1] % 10) == 3)
-                            {
-                                dangerSquaresForBlackKing[h + 2][w - 1] = true;
-                            }
+                            dangerSquaresForBlackKing[h + 2][w - 1] = true;
                         }
                         if (h < 6 && w < 7)
                         {
-                            if (temporaryChessBoard[h + 2][w + 1] == 0 || (temporaryChessBoard[h + 2][w + 1] % 10) == 1 || (temporaryChessBoard[h + 2][w + 1] % 10) == 3)
-                            {
-                                dangerSquaresForBlackKing[h + 2][w + 1] = true;
-                            }
+                            dangerSquaresForBlackKing[h + 2][w + 1] = true;
                         }
                         if (h < 7 && w < 6)
                         {
-                            if (temporaryChessBoard[h + 1][w + 2] == 0 || (temporaryChessBoard[h + 1][w + 2] % 10) == 1 || (temporaryChessBoard[h + 1][w + 2] % 10) == 3)
-                            {
-                                dangerSquaresForBlackKing[h + 1][w + 2] = true;
-                            }
+                            dangerSquaresForBlackKing[h + 1][w + 2] = true;
                         }
                         if (h > 0 && w < 6)
                         {
-                            if (temporaryChessBoard[h - 1][w + 2] == 0 || (temporaryChessBoard[h - 1][w + 2] % 10) == 1 || (temporaryChessBoard[h - 1][w + 2] % 10) == 3)
-                            {
-                                dangerSquaresForBlackKing[h - 1][w + 2] = true;
-                            }
+                            dangerSquaresForBlackKing[h - 1][w + 2] = true;
                         }
                         break;
 
@@ -415,6 +432,7 @@ static void updateDangerSquares()
                             }
                             if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
                             {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -436,6 +454,7 @@ static void updateDangerSquares()
                             }
                             if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
                             {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -457,6 +476,7 @@ static void updateDangerSquares()
                             }
                             if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
                             {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -478,6 +498,7 @@ static void updateDangerSquares()
                             }
                             if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
                             {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -504,6 +525,7 @@ static void updateDangerSquares()
                             }
                             if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
                             {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -525,6 +547,7 @@ static void updateDangerSquares()
                             }
                             if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
                             {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -546,6 +569,7 @@ static void updateDangerSquares()
                             }
                             if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
                             {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -567,6 +591,7 @@ static void updateDangerSquares()
                             }
                             if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
                             {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -589,6 +614,7 @@ static void updateDangerSquares()
                                 }
                                 if (((temporaryChessBoard[tempY][w] % 10) == 0 && temporaryChessBoard[tempY][w] != 0) || (temporaryChessBoard[tempY][w] % 10) == 2)
                                 {
+                                    dangerSquaresForBlackKing[tempY][w] = true;
                                     break;
                                 }
 
@@ -609,6 +635,7 @@ static void updateDangerSquares()
                                 }
                                 if (((temporaryChessBoard[tempY][w] % 10) == 0 && temporaryChessBoard[tempY][w] != 0) || (temporaryChessBoard[tempY][w] % 10) == 2)
                                 {
+                                    dangerSquaresForBlackKing[tempY][w] = true;
                                     break;
                                 }
 
@@ -629,6 +656,7 @@ static void updateDangerSquares()
                                 }
                                 if (((temporaryChessBoard[h][tempX] % 10) == 0 && temporaryChessBoard[h][tempX] != 0) || (temporaryChessBoard[h][tempX] % 10) == 2)
                                 {
+                                    dangerSquaresForBlackKing[h][tempX] = true;
                                     break;
                                 }
 
@@ -649,6 +677,7 @@ static void updateDangerSquares()
                                 }
                                 if (((temporaryChessBoard[h][tempX] % 10) == 0 && temporaryChessBoard[h][tempX] != 0) || (temporaryChessBoard[h][tempX] % 10) == 2)
                                 {
+                                    dangerSquaresForBlackKing[h][tempX] = true;
                                     break;
                                 }
 
@@ -674,6 +703,7 @@ static void updateDangerSquares()
                             }
                             if (((temporaryChessBoard[tempY][w] % 10) == 0 && temporaryChessBoard[tempY][w] != 0) || (temporaryChessBoard[tempY][w] % 10) == 2)
                             {
+                                dangerSquaresForBlackKing[tempY][w] = true;
                                 break;
                             }
 
@@ -694,6 +724,7 @@ static void updateDangerSquares()
                             }
                             if (((temporaryChessBoard[tempY][w] % 10) == 0 && temporaryChessBoard[tempY][w] != 0) || (temporaryChessBoard[tempY][w] % 10) == 2)
                             {
+                                dangerSquaresForBlackKing[tempY][w] = true;
                                 break;
                             }
 
@@ -714,6 +745,7 @@ static void updateDangerSquares()
                             }
                             if (((temporaryChessBoard[h][tempX] % 10) == 0 && temporaryChessBoard[h][tempX] != 0) || (temporaryChessBoard[h][tempX] % 10) == 2)
                             {
+                                dangerSquaresForBlackKing[h][tempX] = true;
                                 break;
                             }
 
@@ -734,6 +766,7 @@ static void updateDangerSquares()
                             }
                             if (((temporaryChessBoard[h][tempX] % 10) == 0 && temporaryChessBoard[h][tempX] != 0) || (temporaryChessBoard[h][tempX] % 10) == 2)
                             {
+                                dangerSquaresForBlackKing[h][tempX] = true;
                                 break;
                             }
 
@@ -748,41 +781,15 @@ static void updateDangerSquares()
 
                     case 100:
                     {
-                        if (h > 0 && w < 7 && (temporaryChessBoard[h - 1][w + 1] == 0 || (temporaryChessBoard[h - 1][w + 1] % 10) == 1 || (temporaryChessBoard[h - 1][w + 1] % 10) == 3))
-                        {
-                            dangerSquaresForBlackKing[h - 1][w + 1] = true;
-                        }
-                        if (h > 0 && (temporaryChessBoard[h - 1][w] == 0 || (temporaryChessBoard[h - 1][w] % 10) == 1 || (temporaryChessBoard[h - 1][w] % 10) == 3))
-                        {
-                            dangerSquaresForBlackKing[h - 1][w] = true;
-                        }
-                        if (h > 0 && w > 0 && (temporaryChessBoard[h - 1][w - 1] == 0 || (temporaryChessBoard[h - 1][w - 1] % 10) == 1 || (temporaryChessBoard[h - 1][w - 1] % 10) == 3))
-                        {
-                            dangerSquaresForBlackKing[h - 1][w - 1] = true;
-                        }
-                        if (w > 0 && (temporaryChessBoard[h][w - 1] == 0 || (temporaryChessBoard[h][w - 1] % 10) == 1 || (temporaryChessBoard[h][w - 1] % 10) == 3))
-                        {
-                            dangerSquaresForBlackKing[h][w - 1] = true;
-                        }
-                        if (h < 7 && w > 0 && (temporaryChessBoard[h + 1][w - 1] == 0 || (temporaryChessBoard[h + 1][w - 1] % 10) == 1 || (temporaryChessBoard[h + 1][w - 1] % 10) == 3))
-                        {
-                            dangerSquaresForBlackKing[h + 1][w - 1] = true;
-                        }
-                        if (h < 7 && (temporaryChessBoard[h + 1][w] == 0 || (temporaryChessBoard[h + 1][w] % 10) == 1 || (temporaryChessBoard[h + 1][w] % 10) == 3))
-                        {
-                            dangerSquaresForBlackKing[h + 1][w] = true;
-                        }
-                        if (h < 7 && w < 7 && (temporaryChessBoard[h + 1][w + 1] == 0 || (temporaryChessBoard[h + 1][w + 1] % 10) == 1 || (temporaryChessBoard[h + 1][w + 1] % 10) == 3))
-                        {
-                            dangerSquaresForBlackKing[h + 1][w + 1] = true;
-                        }
-                        if (w < 7 && (temporaryChessBoard[h][w + 1] == 0 || (temporaryChessBoard[h][w + 1] % 10) == 1 || (temporaryChessBoard[h][w + 1] % 10) == 3))
-                        {
-                            dangerSquaresForBlackKing[h][w + 1] = true;
-                        }
+                        dangerSquaresForBlackKing[h - 1][w + 1] = true;
+                        dangerSquaresForBlackKing[h - 1][w] = true;
+                        dangerSquaresForBlackKing[h - 1][w - 1] = true;
+                        dangerSquaresForBlackKing[h][w - 1] = true;
+                        dangerSquaresForBlackKing[h + 1][w - 1] = true;
+                        dangerSquaresForBlackKing[h + 1][w] = true;
+                        dangerSquaresForBlackKing[h + 1][w + 1] = true;
+                        dangerSquaresForBlackKing[h][w + 1] = true;
                         break;
-
-
                     }
 //Danger Squares for White (black pieces)
                     case 11:
@@ -790,33 +797,21 @@ static void updateDangerSquares()
                         {
                             if (w != 0)
                             {
-                                //if (temporaryChessBoard[h - 1][w - 1] != 0 && (temporaryChessBoard[h - 1][w - 1] % 10) != 1 && (temporaryChessBoard[h - 1][w - 1] % 10) != 3)
-                                //{
                                 dangerSquaresForWhiteKing[h - 1][w - 1] = true;
-                                //}
                             }
                             if (w != 7) {
-                                //if (temporaryChessBoard[h - 1][w + 1] != 0 && (temporaryChessBoard[h - 1][w + 1] % 10) != 1 && (temporaryChessBoard[h - 1][w + 1] % 10) != 3)
-                                //{
                                 dangerSquaresForWhiteKing[h - 1][w + 1] = true;
-                                //}
                             }
                         }
                         else
                         {
                             if (w != 0)
                             {
-                                //if (temporaryChessBoard[h + 1][w - 1] != 0 && (temporaryChessBoard[h + 1][w - 1] % 10) != 1 && (temporaryChessBoard[h + 1][w - 1] % 10) != 3)
-                                //{
                                 dangerSquaresForWhiteKing[h + 1][w - 1] = true;
-                                //}
                             }
                             if (w != 7)
                             {
-                                //if (temporaryChessBoard[h + 1][w + 1] != 0 && (temporaryChessBoard[h + 1][w + 1] % 10) != 1 && (temporaryChessBoard[h + 1][w + 1] % 10) != 3)
-                                //{
                                 dangerSquaresForWhiteKing[h + 1][w + 1] = true;
-                                //}
                             }
                         }
                         break;
@@ -824,59 +819,35 @@ static void updateDangerSquares()
                     case 31:
                         if (h > 1 && w < 7)
                         {
-                            if (temporaryChessBoard[h - 2][w + 1] == 0 || (temporaryChessBoard[h - 2][w + 1] % 10) == 0 || (temporaryChessBoard[h - 2][w + 1] % 10) == 2)
-                            {
-                                dangerSquaresForWhiteKing[h - 2][w + 1] = true;
-                            }
+                            dangerSquaresForWhiteKing[h - 2][w + 1] = true;
                         }
                         if (h > 1 && w > 0)
                         {
-                            if (temporaryChessBoard[h - 2][w - 1] == 0 || (temporaryChessBoard[h - 2][w - 1] % 10) == 0 || (temporaryChessBoard[h - 2][w - 1] % 10) == 2)
-                            {
-                                dangerSquaresForWhiteKing[h - 2][w - 1] = true;
-                            }
+                            dangerSquaresForWhiteKing[h - 2][w - 1] = true;
                         }
                         if (h > 0 && w > 1)
                         {
-                            if (temporaryChessBoard[h - 1][w - 2] == 0 || (temporaryChessBoard[h - 1][w - 2] % 10) == 0 || (temporaryChessBoard[h - 1][w - 2] % 10) == 2)
-                            {
-                                dangerSquaresForWhiteKing[h - 1][w - 2] = true;
-                            }
+                            dangerSquaresForWhiteKing[h - 1][w - 2] = true;
                         }
                         if (h < 7 && w > 1)
                         {
-                            if (temporaryChessBoard[h + 1][w - 2] == 0 || (temporaryChessBoard[h + 1][w - 2] % 10) == 0 || (temporaryChessBoard[h + 1][w - 2] % 10) == 2)
-                            {
-                                dangerSquaresForWhiteKing[h + 1][w - 2] = true;
-                            }
+                            dangerSquaresForWhiteKing[h + 1][w - 2] = true;
                         }
                         if (h < 6 && w > 0)
                         {
-                            if (temporaryChessBoard[h + 2][w - 1] == 0 || (temporaryChessBoard[h + 2][w - 1] % 10) == 0 || (temporaryChessBoard[h + 2][w - 1] % 10) == 2)
-                            {
-                                dangerSquaresForWhiteKing[h + 2][w - 1] = true;
-                            }
+                            dangerSquaresForWhiteKing[h + 2][w - 1] = true;
                         }
                         if (h < 6 && w < 7)
                         {
-                            if (temporaryChessBoard[h + 2][w + 1] == 0 || (temporaryChessBoard[h + 2][w + 1] % 10) == 0 || (temporaryChessBoard[h + 2][w + 1] % 10) == 2)
-                            {
-                                dangerSquaresForWhiteKing[h + 2][w + 1] = true;
-                            }
+                            dangerSquaresForWhiteKing[h + 2][w + 1] = true;
                         }
                         if (h < 7 && w < 6)
                         {
-                            if (temporaryChessBoard[h + 1][w + 2] == 0 || (temporaryChessBoard[h + 1][w + 2] % 10) == 0 || (temporaryChessBoard[h + 1][w + 2] % 10) == 2)
-                            {
-                                dangerSquaresForWhiteKing[h + 1][w + 2] = true;
-                            }
+                            dangerSquaresForWhiteKing[h + 1][w + 2] = true;
                         }
                         if (h > 0 && w < 6)
                         {
-                            if (temporaryChessBoard[h - 1][w + 2] == 0 || (temporaryChessBoard[h - 1][w + 2] % 10) == 0 || (temporaryChessBoard[h - 1][w + 2] % 10) == 2)
-                            {
-                                dangerSquaresForWhiteKing[h - 1][w + 2] = true;
-                            }
+                            dangerSquaresForWhiteKing[h - 1][w + 2] = true;
                         }
                         break;
 
@@ -893,6 +864,7 @@ static void updateDangerSquares()
                             }
                             if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
                             {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -914,6 +886,7 @@ static void updateDangerSquares()
                             }
                             if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
                             {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -935,6 +908,7 @@ static void updateDangerSquares()
                             }
                             if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
                             {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -956,6 +930,7 @@ static void updateDangerSquares()
                             }
                             if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
                             {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -981,6 +956,7 @@ static void updateDangerSquares()
                             }
                             if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
                             {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -1002,6 +978,7 @@ static void updateDangerSquares()
                             }
                             if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
                             {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -1023,6 +1000,7 @@ static void updateDangerSquares()
                             }
                             if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
                             {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -1044,6 +1022,7 @@ static void updateDangerSquares()
                             }
                             if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
                             {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
                                 break;
                             }
 
@@ -1066,6 +1045,7 @@ static void updateDangerSquares()
                                 }
                                 if ((temporaryChessBoard[tempY][w] % 10) == 1 || (temporaryChessBoard[tempY][w] % 10) == 3)
                                 {
+                                    dangerSquaresForWhiteKing[tempY][w] = true;
                                     break;
                                 }
 
@@ -1085,6 +1065,7 @@ static void updateDangerSquares()
                                 }
                                 if ((temporaryChessBoard[tempY][w] % 10) == 1 || (temporaryChessBoard[tempY][w] % 10) == 3)
                                 {
+                                    dangerSquaresForWhiteKing[tempY][w] = true;
                                     break;
                                 }
 
@@ -1104,6 +1085,7 @@ static void updateDangerSquares()
                                 }
                                 if ((temporaryChessBoard[h][tempX] % 10) == 1 || (temporaryChessBoard[h][tempX] % 10) == 3)
                                 {
+                                    dangerSquaresForWhiteKing[h][tempX] = true;
                                     break;
                                 }
 
@@ -1123,6 +1105,7 @@ static void updateDangerSquares()
                                 }
                                 if ((temporaryChessBoard[h][tempX] % 10) == 1 || (temporaryChessBoard[h][tempX] % 10) == 3)
                                 {
+                                    dangerSquaresForWhiteKing[h][tempX] = true;
                                     break;
                                 }
 
@@ -1148,6 +1131,7 @@ static void updateDangerSquares()
                             }
                             if ((temporaryChessBoard[tempY][w] % 10) == 1 || (temporaryChessBoard[tempY][w] % 10) == 3)
                             {
+                                dangerSquaresForWhiteKing[tempY][w] = true;
                                 break;
                             }
 
@@ -1167,6 +1151,7 @@ static void updateDangerSquares()
                             }
                             if ((temporaryChessBoard[tempY][w] % 10) == 1 || (temporaryChessBoard[tempY][w] % 10) == 3)
                             {
+                                dangerSquaresForWhiteKing[tempY][w] = true;
                                 break;
                             }
 
@@ -1186,6 +1171,7 @@ static void updateDangerSquares()
                             }
                             if ((temporaryChessBoard[h][tempX] % 10) == 1 || (temporaryChessBoard[h][tempX] % 10) == 3)
                             {
+                                dangerSquaresForWhiteKing[h][tempX] = true;
                                 break;
                             }
 
@@ -1205,6 +1191,7 @@ static void updateDangerSquares()
                             }
                             if ((temporaryChessBoard[h][tempX] % 10) == 1 || (temporaryChessBoard[h][tempX] % 10) == 3)
                             {
+                                dangerSquaresForWhiteKing[h][tempX] = true;
                                 break;
                             }
 
@@ -1214,45 +1201,22 @@ static void updateDangerSquares()
                             }
                             tempX++;
                         }
+                        break;
                     }
-                    break;
+
 
                     case 101:
                     {
-                        if (h > 0 && w < 7 && (temporaryChessBoard[h - 1][w + 1] == 0 || (temporaryChessBoard[h - 1][w + 1] % 10) == 0 || (temporaryChessBoard[h - 1][w + 1] % 10) == 2))
-                        {
-                            dangerSquaresForWhiteKing[h - 1][w + 1] = true;
-                        }
-                        if (h > 0 && (temporaryChessBoard[h - 1][w] == 0 || (temporaryChessBoard[h - 1][w] % 10) == 0 || (temporaryChessBoard[h - 1][w] % 10) == 2))
-                        {
-                            dangerSquaresForWhiteKing[h - 1][w] = true;
-                        }
-                        if (h > 0 && w > 0 && (temporaryChessBoard[h - 1][w - 1] == 0 || (temporaryChessBoard[h - 1][w - 1] % 10) == 0 || (temporaryChessBoard[h - 1][w - 1] % 10) == 2))
-                        {
-                            dangerSquaresForWhiteKing[h - 1][w - 1] = true;
-                        }
-                        if (w > 0 && (temporaryChessBoard[h][w - 1] == 0 || (temporaryChessBoard[h][w - 1] % 10) == 0 || (temporaryChessBoard[h][w - 1] % 10) == 2))
-                        {
-                            dangerSquaresForWhiteKing[h][w - 1] = true;
-                        }
-                        if (h < 7 && w > 0 && (temporaryChessBoard[h + 1][w - 1] == 0 || (temporaryChessBoard[h + 1][w - 1] % 10) == 0 || (temporaryChessBoard[h + 1][w - 1] % 10) == 2))
-                        {
-                            dangerSquaresForWhiteKing[h + 1][w - 1] = true;
-                        }
-                        if (h < 7 && (temporaryChessBoard[h + 1][w] == 0 || (temporaryChessBoard[h + 1][w] % 10) == 0 || (temporaryChessBoard[h + 1][w] % 10) == 2))
-                        {
-                            dangerSquaresForWhiteKing[h + 1][w] = true;
-                        }
-                        if (h < 7 && w < 7 && (temporaryChessBoard[h + 1][w + 1] == 0 || (temporaryChessBoard[h + 1][w + 1] % 10) == 0 || (temporaryChessBoard[h + 1][w + 1] % 10) == 2))
-                        {
-                            dangerSquaresForWhiteKing[h + 1][w + 1] = true;
-                        }
-                        if (w < 7 && (temporaryChessBoard[h][w + 1] == 0 || (temporaryChessBoard[h][w + 1] % 10) == 0 || (temporaryChessBoard[h][w + 1] % 10) == 2))
-                        {
-                            dangerSquaresForWhiteKing[h][w + 1] = true;
-                        }
+                        dangerSquaresForWhiteKing[h - 1][w + 1] = true;
+                        dangerSquaresForWhiteKing[h - 1][w] = true;
+                        dangerSquaresForWhiteKing[h - 1][w - 1] = true;
+                        dangerSquaresForWhiteKing[h][w - 1] = true;
+                        dangerSquaresForWhiteKing[h + 1][w - 1] = true;
+                        dangerSquaresForWhiteKing[h + 1][w] = true;
+                        dangerSquaresForWhiteKing[h + 1][w + 1] = true;
+                        dangerSquaresForWhiteKing[h][w + 1] = true;
+                        break;
                     }
-                    break;
                 }
             }
         }
@@ -1308,42 +1272,102 @@ static void updateViableMoves()
             if (isHumanWhite == true)
             {
                 //Double move
-                if (selectedPieceY == 6 && chessBoard[selectedPieceY - 2][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY - 2][selectedPieceX] = true; }
+                if (selectedPieceY == 6 && chessBoard[selectedPieceY - 2][selectedPieceX] == 0 && chessBoard[selectedPieceY - 1][selectedPieceX] == 0)
+                { 
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 2][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
+                }
                 //Single move
-                if (chessBoard[selectedPieceY - 1][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true; }
+                if (chessBoard[selectedPieceY - 1][selectedPieceX] == 0) 
+                {
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false; 
+                }
                 //Attacking
                 if (selectedPieceX != 0)
                 {
                     if (chessBoard[selectedPieceY - 1][selectedPieceX - 1] != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) != 2)
                     {
-                        isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 1);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                 }
                 if (selectedPieceX != 7) {
                     if (chessBoard[selectedPieceY - 1][selectedPieceX + 1] != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) != 2)
                     {
-                        isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 1);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                 }
             }
             else
             {
                 //Double move
-                if (selectedPieceY == 1 && chessBoard[selectedPieceY + 2][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY + 2][selectedPieceX] = true; }
+                if (selectedPieceY == 1 && chessBoard[selectedPieceY + 2][selectedPieceX] == 0 && chessBoard[selectedPieceY + 1][selectedPieceX] == 0)
+                { 
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 2][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
+                }
                 //Single move
-                if (chessBoard[selectedPieceY + 1][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true; }
+                if (chessBoard[selectedPieceY + 1][selectedPieceX] == 0) 
+                { 
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
+                }
                 //Attacking
                 if (selectedPieceX != 0)
                 {
                     if (chessBoard[selectedPieceY + 1][selectedPieceX - 1] != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) != 2)
                     {
-                        isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 1);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                 }
                 if (selectedPieceX != 7) {
                     if (chessBoard[selectedPieceY + 1][selectedPieceX + 1] != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) != 2)
                     {
-                        isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 1);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                 }
             }
@@ -1353,42 +1377,102 @@ static void updateViableMoves()
             if (isHumanWhite == false)
             {
                 //Double move
-                if (selectedPieceY == 6 && chessBoard[selectedPieceY - 2][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY - 2][selectedPieceX] = true; }
+                if (selectedPieceY == 6 && chessBoard[selectedPieceY - 2][selectedPieceX] == 0 && chessBoard[selectedPieceY - 1][selectedPieceX] == 0)
+                { 
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 2][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
+                }
                 //Single move
-                if (chessBoard[selectedPieceY - 1][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true; }
+                if (chessBoard[selectedPieceY - 1][selectedPieceX] == 0) 
+                { 
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
+                }
                 //Attacking
                 if (selectedPieceX != 0)
                 {
                     if (chessBoard[selectedPieceY - 1][selectedPieceX - 1] != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) != 1 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) != 3)
                     {
-                        isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 1);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                 }
                 if (selectedPieceX != 7) {
                     if (chessBoard[selectedPieceY - 1][selectedPieceX + 1] != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) != 1 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) != 3)
                     {
-                        isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 1);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                 }
             }
             else
             {
                 //Double move
-                if (selectedPieceY == 1 && chessBoard[selectedPieceY + 2][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY + 2][selectedPieceX] = true; }
+                if (selectedPieceY == 1 && chessBoard[selectedPieceY + 2][selectedPieceX] == 0 && chessBoard[selectedPieceY + 1][selectedPieceX] == 0 )
+                { 
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 2][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
+                }
                 //Single move
-                if (chessBoard[selectedPieceY + 1][selectedPieceX] == 0) { isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true; }
+                if (chessBoard[selectedPieceY + 1][selectedPieceX] == 0) 
+                { 
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
+                }
                 //Attacking
                 if (selectedPieceX != 0)
                 {
                     if (chessBoard[selectedPieceY + 1][selectedPieceX - 1] != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) != 1 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) != 3)
                     {
-                        isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 1);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                 }
                 if (selectedPieceX != 7) {
                     if (chessBoard[selectedPieceY + 1][selectedPieceX + 1] != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) != 1 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) != 3)
                     {
-                        isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 1);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                 }
             }
@@ -1399,56 +1483,104 @@ static void updateViableMoves()
             {
                 if (chessBoard[selectedPieceY - 2][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1] % 10) == 3)
                 {
-                    isChessSquareViableMove[selectedPieceY - 2][selectedPieceX + 1] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX + 1);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 2][selectedPieceX + 1] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             if (selectedPieceY > 1 && selectedPieceX > 0)
             {
                 if (chessBoard[selectedPieceY - 2][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1] % 10) == 3)
                 {
-                    isChessSquareViableMove[selectedPieceY - 2][selectedPieceX - 1] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX - 1);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 2][selectedPieceX - 1] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             if (selectedPieceY > 0 && selectedPieceX > 1)
             {
                 if (chessBoard[selectedPieceY - 1][selectedPieceX - 2] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2] % 10) == 3)
                 {
-                    isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 2] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 2);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 2] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             if (selectedPieceY < 7 && selectedPieceX > 1)
             {
                 if (chessBoard[selectedPieceY + 1][selectedPieceX - 2] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2] % 10) == 3)
                 {
-                    isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 2] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 2);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 2] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             if (selectedPieceY < 6 && selectedPieceX > 0)
             {
                 if (chessBoard[selectedPieceY + 2][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1] % 10) == 3)
                 {
-                    isChessSquareViableMove[selectedPieceY + 2][selectedPieceX - 1] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX - 1);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 2][selectedPieceX - 1] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             if (selectedPieceY < 6 && selectedPieceX < 7)
             {
                 if (chessBoard[selectedPieceY + 2][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1] % 10) == 3)
                 {
-                    isChessSquareViableMove[selectedPieceY + 2][selectedPieceX + 1] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX + 1);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 2][selectedPieceX + 1] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             if (selectedPieceY < 7 && selectedPieceX < 6)
             {
                 if (chessBoard[selectedPieceY + 1][selectedPieceX + 2] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2] % 10) == 3)
                 {
-                    isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 2] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 2);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 2] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             if (selectedPieceY > 0 && selectedPieceX < 6)
             {
                 if (chessBoard[selectedPieceY - 1][selectedPieceX + 2] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2] % 10) == 3)
                 {
-                    isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 2] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 2);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 2] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             break;
@@ -1458,56 +1590,104 @@ static void updateViableMoves()
             {
                 if (chessBoard[selectedPieceY - 2][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1] % 10) == 2)
                 {
-                    isChessSquareViableMove[selectedPieceY - 2][selectedPieceX + 1] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX + 1);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 2][selectedPieceX + 1] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             if (selectedPieceY > 1 && selectedPieceX > 0)
             {
                 if (chessBoard[selectedPieceY - 2][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1] % 10) == 2)
                 {
-                    isChessSquareViableMove[selectedPieceY - 2][selectedPieceX - 1] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX - 1);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 2][selectedPieceX - 1] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             if (selectedPieceY > 0 && selectedPieceX > 1)
             {
                 if (chessBoard[selectedPieceY - 1][selectedPieceX - 2] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2] % 10) == 2)
                 {
-                    isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 2] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 2);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 2] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             if (selectedPieceY < 7 && selectedPieceX > 1)
             {
                 if (chessBoard[selectedPieceY + 1][selectedPieceX - 2] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2] % 10) == 2)
                 {
-                    isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 2] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 2);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 2] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             if (selectedPieceY < 6 && selectedPieceX > 0)
             {
                 if (chessBoard[selectedPieceY + 2][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1] % 10) == 2)
                 {
-                    isChessSquareViableMove[selectedPieceY + 2][selectedPieceX - 1] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX - 1);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 2][selectedPieceX - 1] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             if (selectedPieceY < 6 && selectedPieceX < 7)
             {
                 if (chessBoard[selectedPieceY + 2][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1] % 10) == 2)
                 {
-                    isChessSquareViableMove[selectedPieceY + 2][selectedPieceX + 1] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX + 1);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 2][selectedPieceX + 1] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             if (selectedPieceY < 7 && selectedPieceX < 6)
             {
                 if (chessBoard[selectedPieceY + 1][selectedPieceX + 2] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2] % 10) == 2)
                 {
-                    isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 2] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 2);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 2] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             if (selectedPieceY > 0 && selectedPieceX < 6)
             {
                 if (chessBoard[selectedPieceY - 1][selectedPieceX + 2] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2] % 10) == 2)
                 {
-                    isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 2] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 2);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 2] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
             }
             break;
@@ -1520,7 +1700,13 @@ static void updateViableMoves()
             {
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
@@ -1530,7 +1716,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX++;
                 tempY--;
@@ -1541,7 +1733,13 @@ static void updateViableMoves()
             {
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
@@ -1551,7 +1749,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX--;
                 tempY--;
@@ -1562,7 +1766,13 @@ static void updateViableMoves()
             {
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
@@ -1572,7 +1782,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX--;
                 tempY++;
@@ -1583,7 +1799,13 @@ static void updateViableMoves()
             {
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
@@ -1593,7 +1815,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX++;
                 tempY++;
@@ -1609,7 +1837,13 @@ static void updateViableMoves()
             {
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
@@ -1619,7 +1853,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX++;
                 tempY--;
@@ -1630,7 +1870,13 @@ static void updateViableMoves()
             {
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
@@ -1640,7 +1886,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX--;
                 tempY--;
@@ -1651,7 +1903,13 @@ static void updateViableMoves()
             {
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
@@ -1661,7 +1919,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX--;
                 tempY++;
@@ -1672,7 +1936,13 @@ static void updateViableMoves()
             {
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
@@ -1682,7 +1952,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX++;
                 tempY++;
@@ -1699,7 +1975,13 @@ static void updateViableMoves()
             {
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
@@ -1709,7 +1991,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX++;
                 tempY--;
@@ -1720,7 +2008,13 @@ static void updateViableMoves()
             {
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
@@ -1730,7 +2024,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX--;
                 tempY--;
@@ -1741,7 +2041,13 @@ static void updateViableMoves()
             {
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
@@ -1751,7 +2057,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX--;
                 tempY++;
@@ -1762,7 +2074,13 @@ static void updateViableMoves()
             {
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
@@ -1772,7 +2090,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX++;
                 tempY++;
@@ -1784,7 +2108,13 @@ static void updateViableMoves()
                 {
                     if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
                     {
-                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        }
+                        isMoveHypothetical = false;
                         break;
                     }
                     if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
@@ -1794,7 +2124,13 @@ static void updateViableMoves()
 
                     if (chessBoard[tempY][selectedPieceX] == 0)
                     {
-                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                     tempY--;
                 }
@@ -1804,7 +2140,13 @@ static void updateViableMoves()
                 {
                     if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
                     {
-                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        }
+                        isMoveHypothetical = false;
                         break;
                     }
                     if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
@@ -1814,7 +2156,13 @@ static void updateViableMoves()
 
                     if (chessBoard[tempY][selectedPieceX] == 0)
                     {
-                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                     tempY++;
                 }
@@ -1824,7 +2172,13 @@ static void updateViableMoves()
                 {
                     if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
                     {
-                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        }
+                        isMoveHypothetical = false;
                         break;
                     }
                     if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
@@ -1834,7 +2188,13 @@ static void updateViableMoves()
 
                     if (chessBoard[selectedPieceY][tempX] == 0)
                     {
-                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                     tempX--;
                 }
@@ -1844,7 +2204,13 @@ static void updateViableMoves()
                 {
                     if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
                     {
-                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        }
+                        isMoveHypothetical = false;
                         break;
                     }
                     if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
@@ -1854,7 +2220,13 @@ static void updateViableMoves()
 
                     if (chessBoard[selectedPieceY][tempX] == 0)
                     {
-                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                     tempX++;
                 }
@@ -1870,7 +2242,13 @@ static void updateViableMoves()
             {
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
@@ -1880,7 +2258,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX++;
                 tempY--;
@@ -1891,7 +2275,13 @@ static void updateViableMoves()
             {
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
@@ -1901,7 +2291,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX--;
                 tempY--;
@@ -1912,7 +2308,13 @@ static void updateViableMoves()
             {
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
@@ -1922,7 +2324,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX--;
                 tempY++;
@@ -1933,7 +2341,13 @@ static void updateViableMoves()
             {
                 if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
@@ -1943,7 +2357,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][tempX] == 0)
                 {
-                    isChessSquareViableMove[tempY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX++;
                 tempY++;
@@ -1955,7 +2375,13 @@ static void updateViableMoves()
                 {
                     if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
                     {
-                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        }
+                        isMoveHypothetical = false;
                         break;
                     }
                     if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
@@ -1965,7 +2391,13 @@ static void updateViableMoves()
 
                     if (chessBoard[tempY][selectedPieceX] == 0)
                     {
-                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                     tempY--;
                 }
@@ -1975,7 +2407,13 @@ static void updateViableMoves()
                 {
                     if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
                     {
-                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        }
+                        isMoveHypothetical = false;
                         break;
                     }
                     if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
@@ -1985,7 +2423,13 @@ static void updateViableMoves()
 
                     if (chessBoard[tempY][selectedPieceX] == 0)
                     {
-                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[tempY][selectedPieceX] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                     tempY++;
                 }
@@ -1995,7 +2439,13 @@ static void updateViableMoves()
                 {
                     if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
                     {
-                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        }
+                        isMoveHypothetical = false;
                         break;
                     }
                     if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
@@ -2005,7 +2455,13 @@ static void updateViableMoves()
 
                     if (chessBoard[selectedPieceY][tempX] == 0)
                     {
-                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                     tempX--;
                 }
@@ -2015,7 +2471,13 @@ static void updateViableMoves()
                 {
                     if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
                     {
-                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        }
+                        isMoveHypothetical = false;
                         break;
                     }
                     if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
@@ -2025,7 +2487,13 @@ static void updateViableMoves()
 
                     if (chessBoard[selectedPieceY][tempX] == 0)
                     {
-                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY][tempX] = true;
+                        }
+                        isMoveHypothetical = false;
                     }
                     tempX++;
                 }
@@ -2040,7 +2508,13 @@ static void updateViableMoves()
             {
                 if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
                 {
-                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
@@ -2050,7 +2524,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][selectedPieceX] == 0)
                 {
-                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempY--;
             }
@@ -2060,7 +2540,13 @@ static void updateViableMoves()
             {
                 if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
                 {
-                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
@@ -2070,7 +2556,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][selectedPieceX] == 0)
                 {
-                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempY++;
             }
@@ -2080,7 +2572,13 @@ static void updateViableMoves()
             {
                 if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
                 {
-                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
@@ -2090,7 +2588,13 @@ static void updateViableMoves()
 
                 if (chessBoard[selectedPieceY][tempX] == 0)
                 {
-                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX--;
             }
@@ -2100,7 +2604,13 @@ static void updateViableMoves()
             {
                 if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
                 {
-                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
@@ -2110,7 +2620,13 @@ static void updateViableMoves()
 
                 if (chessBoard[selectedPieceY][tempX] == 0)
                 {
-                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                    updateIsKingInCheck();
+                    if (isWhiteKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX++;
             }
@@ -2124,7 +2640,13 @@ static void updateViableMoves()
             {
                 if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
                 {
-                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
@@ -2134,7 +2656,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][selectedPieceX] == 0)
                 {
-                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempY--;
             }
@@ -2144,7 +2672,13 @@ static void updateViableMoves()
             {
                 if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
                 {
-                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
@@ -2154,7 +2688,13 @@ static void updateViableMoves()
 
                 if (chessBoard[tempY][selectedPieceX] == 0)
                 {
-                    isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[tempY][selectedPieceX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempY++;
             }
@@ -2164,7 +2704,13 @@ static void updateViableMoves()
             {
                 if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
                 {
-                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
@@ -2174,7 +2720,13 @@ static void updateViableMoves()
 
                 if (chessBoard[selectedPieceY][tempX] == 0)
                 {
-                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX--;
             }
@@ -2184,7 +2736,13 @@ static void updateViableMoves()
             {
                 if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
                 {
-                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                     break;
                 }
                 if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
@@ -2194,7 +2752,13 @@ static void updateViableMoves()
 
                 if (chessBoard[selectedPieceY][tempX] == 0)
                 {
-                    isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
+                    updateIsKingInCheck();
+                    if (isBlackKingInCheck == false)
+                    {
+                        isChessSquareViableMove[selectedPieceY][tempX] = true;
+                    }
+                    isMoveHypothetical = false;
                 }
                 tempX++;
             }
@@ -2324,6 +2888,7 @@ static void updateViableMoves()
         break;
         }
     }
+    updateIsKingInCheck();
 }
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -2542,6 +3107,19 @@ int main(int, char**)
             }
         }
 
+        //Test Drawing Danger Squares
+        for (int w = 0; w < 8; w++)
+        {
+            for (int h = 0; h < 8; h++)
+            {
+                if (dangerSquaresForWhiteKing[h][w] == true)
+                {
+                    ImGui::SetCursorPos(ImVec2((w * 60) + starterBoardPosX, (h * 60) + starterBoardPosY));
+                    ImGui::Image((void*)squarer, ImVec2(my_image_width, my_image_height));
+                }
+            }
+        }
+
         //Drawing Selected Square
         if (isChessPieceSelected == true)
         {
@@ -2682,6 +3260,12 @@ int main(int, char**)
             ImGui::Text("After that you play against it");
             ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 400));
             ImGui::Text("to the end of the game.");
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 505, starterBoardPosY + 495));
+            ImGui::Text("Disclaimer: there is no");
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 505, starterBoardPosY + 515));
+            ImGui::Text("En passant, castling and pawn");
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 505, starterBoardPosY + 535));
+            ImGui::Text("promotion is always to queen.");
 
             if (isHumanWhite == true)
             {
@@ -2713,6 +3297,7 @@ int main(int, char**)
                 if (isWhitesTurn == true) { isWhitesTurn = false; }
                 else { isWhitesTurn = true; }
 
+                updatePawnToQueenPromotion();
                 updateIsKingInCheck();
             }
         //
