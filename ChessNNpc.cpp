@@ -35,7 +35,6 @@ bool isChessSquareWhite[8][8] =
     {true,false,true,false,true,false,true,false},
     {false,true,false,true,false,true,false,true},
 };
-
 static int windowHeight = 700;
 static int windowWidth = 830;
 bool isGameStarted = false;
@@ -49,6 +48,15 @@ char FENinput[fenLength] = "";
 bool isHumanPlayingAgainstAI = false;
 bool isAITurnedOn = false;
 bool isWhitesTurn = true;
+
+bool dangerSquaresForWhiteKing[8][8];
+bool isWhiteKingInCheck = false;
+bool dangerSquaresForBlackKing[8][8];
+bool isBlackKingInCheck = false;
+int hypotheticalBoard[8][8];
+int hypotheticalBoardForWhiteKing[8][8];
+int hypotheticalBoardForBlackKing[8][8];
+bool isMoveHypothetical = false;
 
 //White 0 ;=; Black 1
 //Pawn +10 +11
@@ -157,8 +165,6 @@ static void testingBoardOut()
 
 static void fenToBoardPosition(char FenPos[fenLength])
 {
-    //TODO: dodaj sprawdzanie czy FEN jest ok
-
     boardReset();
     int chessBoardFENX = 0;
     int chessBoardFENY = 0;
@@ -255,13 +261,1049 @@ static void fenToBoardPosition(char FenPos[fenLength])
     }
 }
 
+static void resetDangerSquares()
+{
+    for (int h = 0; h < 8; h++)
+    {
+        for (int w = 0; w < 8; w++)
+        {
+            dangerSquaresForBlackKing[h][w] = false;
+            dangerSquaresForWhiteKing[h][w] = false;
+        }
+    }
+}
+
+static void updateDangerSquares()
+{
+    int temporaryChessBoard[8][8];
+
+    if (isMoveHypothetical == false)
+    {
+        for (int h = 0; h < 8; h++)
+        {
+            for (int w = 0; w < 8; w++)
+            {
+                temporaryChessBoard[h][w] = chessBoard[h][w];
+            }
+        }
+    }
+    else
+    {
+        for (int h = 0; h < 8; h++)
+        {
+            for (int w = 0; w < 8; w++)
+            {
+                temporaryChessBoard[h][w] = hypotheticalBoard[h][w];
+            }
+        }
+    }
+
+
+    for (int h = 0; h < 8; h++)
+    {
+        for (int w = 0; w < 8; w++)
+        {
+            if (temporaryChessBoard[h][w] != 0)
+            {
+//Danger Squares for Black (white pieces)
+                    switch (temporaryChessBoard[h][w])
+                    {
+                    case 10:
+                        if (isHumanWhite == true)
+                        {
+                            if (w != 0)
+                            {
+                                if (temporaryChessBoard[h - 1][w - 1] != 0 && (temporaryChessBoard[h - 1][w - 1] % 10) != 0 && (temporaryChessBoard[h - 1][w - 1] % 10) != 2)
+                                {
+                                    dangerSquaresForBlackKing[h - 1][w - 1] = true;
+                                }
+                            }
+                            if (w != 7) {
+                                if (temporaryChessBoard[h - 1][w + 1] != 0 && (temporaryChessBoard[h - 1][w + 1] % 10) != 0 && (temporaryChessBoard[h - 1][w + 1] % 10) != 2)
+                                {
+                                    dangerSquaresForBlackKing[h - 1][w + 1] = true;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (w != 0)
+                            {
+                                if (temporaryChessBoard[h + 1][w - 1] != 0 && (temporaryChessBoard[h + 1][w - 1] % 10) != 0 && (temporaryChessBoard[h + 1][w - 1] % 10) != 2)
+                                {
+                                    dangerSquaresForBlackKing[h + 1][w - 1] = true;
+                                }
+                            }
+                            if (w != 7) {
+                                if (temporaryChessBoard[h + 1][w + 1] != 0 && (temporaryChessBoard[h + 1][w + 1] % 10) != 0 && (temporaryChessBoard[h + 1][w + 1] % 10) != 2)
+                                {
+                                    dangerSquaresForBlackKing[h + 1][w + 1] = true;
+                                }
+                            }
+                        }
+                        break;
+
+                    case 30:
+                        if (h > 1 && w < 7)
+                        {
+                            if (temporaryChessBoard[h - 2][w + 1] == 0 || (temporaryChessBoard[h - 2][w + 1] % 10) == 1 || (temporaryChessBoard[h - 2][w + 1] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[h - 2][w + 1] = true;
+                            }
+                        }
+                        if (h > 1 && w > 0)
+                        {
+                            if (temporaryChessBoard[h - 2][w - 1] == 0 || (temporaryChessBoard[h - 2][w - 1] % 10) == 1 || (temporaryChessBoard[h - 2][w - 1] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[h - 2][w - 1] = true;
+                            }
+                        }
+                        if (h > 0 && w > 1)
+                        {
+                            if (temporaryChessBoard[h - 1][w - 2] == 0 || (temporaryChessBoard[h - 1][w - 2] % 10) == 1 || (temporaryChessBoard[h - 1][w - 2] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[h - 1][w - 2] = true;
+                            }
+                        }
+                        if (h < 7 && w > 1)
+                        {
+                            if (temporaryChessBoard[h + 1][w - 2] == 0 || (temporaryChessBoard[h + 1][w - 2] % 10) == 1 || (temporaryChessBoard[h + 1][w - 2] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[h + 1][w - 2] = true;
+                            }
+                        }
+                        if (h < 6 && w > 0)
+                        {
+                            if (temporaryChessBoard[h + 2][w - 1] == 0 || (temporaryChessBoard[h + 2][w - 1] % 10) == 1 || (temporaryChessBoard[h + 2][w - 1] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[h + 2][w - 1] = true;
+                            }
+                        }
+                        if (h < 6 && w < 7)
+                        {
+                            if (temporaryChessBoard[h + 2][w + 1] == 0 || (temporaryChessBoard[h + 2][w + 1] % 10) == 1 || (temporaryChessBoard[h + 2][w + 1] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[h + 2][w + 1] = true;
+                            }
+                        }
+                        if (h < 7 && w < 6)
+                        {
+                            if (temporaryChessBoard[h + 1][w + 2] == 0 || (temporaryChessBoard[h + 1][w + 2] % 10) == 1 || (temporaryChessBoard[h + 1][w + 2] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[h + 1][w + 2] = true;
+                            }
+                        }
+                        if (h > 0 && w < 6)
+                        {
+                            if (temporaryChessBoard[h - 1][w + 2] == 0 || (temporaryChessBoard[h - 1][w + 2] % 10) == 1 || (temporaryChessBoard[h - 1][w + 2] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[h - 1][w + 2] = true;
+                            }
+                        }
+                        break;
+
+                    case 32:
+                    {
+                        int tempX = w + 1;
+                        int tempY = h - 1;
+                        while (tempY >= 0 && tempX <= 7)
+                        {
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                            }
+                            tempX++;
+                            tempY--;
+                        }
+                        tempX = w - 1;
+                        tempY = h - 1;
+                        while (tempY >= 0 && tempX >= 0)
+                        {
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                            }
+                            tempX--;
+                            tempY--;
+                        }
+                        tempX = w - 1;
+                        tempY = h + 1;
+                        while (tempY <= 7 && tempX >= 0)
+                        {
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                            }
+                            tempX--;
+                            tempY++;
+                        }
+                        tempX = w + 1;
+                        tempY = h + 1;
+                        while (tempY <= 7 && tempX <= 7)
+                        {
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                            }
+                            tempX++;
+                            tempY++;
+                        }
+                        break;
+                    }
+
+                    case 90:
+                    {
+                        int tempX = w + 1;
+                        int tempY = h - 1;
+                        while (tempY >= 0 && tempX <= 7)
+                        {
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                            }
+                            tempX++;
+                            tempY--;
+                        }
+                        tempX = w - 1;
+                        tempY = h - 1;
+                        while (tempY >= 0 && tempX >= 0)
+                        {
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                            }
+                            tempX--;
+                            tempY--;
+                        }
+                        tempX = w - 1;
+                        tempY = h + 1;
+                        while (tempY <= 7 && tempX >= 0)
+                        {
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                            }
+                            tempX--;
+                            tempY++;
+                        }
+                        tempX = w + 1;
+                        tempY = h + 1;
+                        while (tempY <= 7 && tempX <= 7)
+                        {
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForBlackKing[tempY][tempX] = true;
+                            }
+                            tempX++;
+                            tempY++;
+                        }
+
+                        {
+                            int tempY = h - 1;
+                            while (tempY >= 0)
+                            {
+                                if ((temporaryChessBoard[tempY][w] % 10) == 1 || (temporaryChessBoard[tempY][w] % 10) == 3)
+                                {
+                                    dangerSquaresForBlackKing[tempY][w] = true;
+                                    break;
+                                }
+                                if (((temporaryChessBoard[tempY][w] % 10) == 0 && temporaryChessBoard[tempY][w] != 0) || (temporaryChessBoard[tempY][w] % 10) == 2)
+                                {
+                                    break;
+                                }
+
+                                if (temporaryChessBoard[tempY][w] == 0)
+                                {
+                                    dangerSquaresForBlackKing[tempY][w] = true;
+                                }
+                                tempY--;
+                            }
+                            tempY = h + 1;
+
+                            while (tempY <= 7)
+                            {
+                                if ((temporaryChessBoard[tempY][w] % 10) == 1 || (temporaryChessBoard[tempY][w] % 10) == 3)
+                                {
+                                    dangerSquaresForBlackKing[tempY][w] = true;
+                                    break;
+                                }
+                                if (((temporaryChessBoard[tempY][w] % 10) == 0 && temporaryChessBoard[tempY][w] != 0) || (temporaryChessBoard[tempY][w] % 10) == 2)
+                                {
+                                    break;
+                                }
+
+                                if (temporaryChessBoard[tempY][w] == 0)
+                                {
+                                    dangerSquaresForBlackKing[tempY][w] = true;
+                                }
+                                tempY++;
+                            }
+
+                            int tempX = w - 1;
+                            while (tempX >= 0)
+                            {
+                                if ((temporaryChessBoard[h][tempX] % 10) == 1 || (temporaryChessBoard[h][tempX] % 10) == 3)
+                                {
+                                    dangerSquaresForBlackKing[h][tempX] = true;
+                                    break;
+                                }
+                                if (((temporaryChessBoard[h][tempX] % 10) == 0 && temporaryChessBoard[h][tempX] != 0) || (temporaryChessBoard[h][tempX] % 10) == 2)
+                                {
+                                    break;
+                                }
+
+                                if (temporaryChessBoard[h][tempX] == 0)
+                                {
+                                    dangerSquaresForBlackKing[h][tempX] = true;
+                                }
+                                tempX--;
+                            }
+                            tempX = w + 1;
+
+                            while (tempX <= 7)
+                            {
+                                if ((temporaryChessBoard[h][tempX] % 10) == 1 || (temporaryChessBoard[h][tempX] % 10) == 3)
+                                {
+                                    dangerSquaresForBlackKing[h][tempX] = true;
+                                    break;
+                                }
+                                if (((temporaryChessBoard[h][tempX] % 10) == 0 && temporaryChessBoard[h][tempX] != 0) || (temporaryChessBoard[h][tempX] % 10) == 2)
+                                {
+                                    break;
+                                }
+
+                                if (temporaryChessBoard[h][tempX] == 0)
+                                {
+                                    dangerSquaresForBlackKing[h][tempX] = true;
+                                }
+                                tempX++;
+                            }
+                        }
+                        break;
+                    }
+
+                    case 50:
+                    {
+                        int tempY = h - 1;
+                        while (tempY >= 0)
+                        {
+                            if ((temporaryChessBoard[tempY][w] % 10) == 1 || (temporaryChessBoard[tempY][w] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[tempY][w] = true;
+                                break;
+                            }
+                            if (((temporaryChessBoard[tempY][w] % 10) == 0 && temporaryChessBoard[tempY][w] != 0) || (temporaryChessBoard[tempY][w] % 10) == 2)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][w] == 0)
+                            {
+                                dangerSquaresForBlackKing[tempY][w] = true;
+                            }
+                            tempY--;
+                        }
+                        tempY = h + 1;
+
+                        while (tempY <= 7)
+                        {
+                            if ((temporaryChessBoard[tempY][w] % 10) == 1 || (temporaryChessBoard[tempY][w] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[tempY][w] = true;
+                                break;
+                            }
+                            if (((temporaryChessBoard[tempY][w] % 10) == 0 && temporaryChessBoard[tempY][w] != 0) || (temporaryChessBoard[tempY][w] % 10) == 2)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][w] == 0)
+                            {
+                                dangerSquaresForBlackKing[tempY][w] = true;
+                            }
+                            tempY++;
+                        }
+
+                        int tempX = w - 1;
+                        while (tempX >= 0)
+                        {
+                            if ((temporaryChessBoard[h][tempX] % 10) == 1 || (temporaryChessBoard[h][tempX] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[h][tempX] = true;
+                                break;
+                            }
+                            if (((temporaryChessBoard[h][tempX] % 10) == 0 && temporaryChessBoard[h][tempX] != 0) || (temporaryChessBoard[h][tempX] % 10) == 2)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[h][tempX] == 0)
+                            {
+                                dangerSquaresForBlackKing[h][tempX] = true;
+                            }
+                            tempX--;
+                        }
+                        tempX = w + 1;
+
+                        while (tempX <= 7)
+                        {
+                            if ((temporaryChessBoard[h][tempX] % 10) == 1 || (temporaryChessBoard[h][tempX] % 10) == 3)
+                            {
+                                dangerSquaresForBlackKing[h][tempX] = true;
+                                break;
+                            }
+                            if (((temporaryChessBoard[h][tempX] % 10) == 0 && temporaryChessBoard[h][tempX] != 0) || (temporaryChessBoard[h][tempX] % 10) == 2)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[h][tempX] == 0)
+                            {
+                                dangerSquaresForBlackKing[h][tempX] = true;
+                            }
+                            tempX++;
+                        }
+                        break;
+                    }
+
+                    case 100:
+                    {
+                        if (h > 0 && w < 7 && (temporaryChessBoard[h - 1][w + 1] == 0 || (temporaryChessBoard[h - 1][w + 1] % 10) == 1 || (temporaryChessBoard[h - 1][w + 1] % 10) == 3))
+                        {
+                            dangerSquaresForBlackKing[h - 1][w + 1] = true;
+                        }
+                        if (h > 0 && (temporaryChessBoard[h - 1][w] == 0 || (temporaryChessBoard[h - 1][w] % 10) == 1 || (temporaryChessBoard[h - 1][w] % 10) == 3))
+                        {
+                            dangerSquaresForBlackKing[h - 1][w] = true;
+                        }
+                        if (h > 0 && w > 0 && (temporaryChessBoard[h - 1][w - 1] == 0 || (temporaryChessBoard[h - 1][w - 1] % 10) == 1 || (temporaryChessBoard[h - 1][w - 1] % 10) == 3))
+                        {
+                            dangerSquaresForBlackKing[h - 1][w - 1] = true;
+                        }
+                        if (w > 0 && (temporaryChessBoard[h][w - 1] == 0 || (temporaryChessBoard[h][w - 1] % 10) == 1 || (temporaryChessBoard[h][w - 1] % 10) == 3))
+                        {
+                            dangerSquaresForBlackKing[h][w - 1] = true;
+                        }
+                        if (h < 7 && w > 0 && (temporaryChessBoard[h + 1][w - 1] == 0 || (temporaryChessBoard[h + 1][w - 1] % 10) == 1 || (temporaryChessBoard[h + 1][w - 1] % 10) == 3))
+                        {
+                            dangerSquaresForBlackKing[h + 1][w - 1] = true;
+                        }
+                        if (h < 7 && (temporaryChessBoard[h + 1][w] == 0 || (temporaryChessBoard[h + 1][w] % 10) == 1 || (temporaryChessBoard[h + 1][w] % 10) == 3))
+                        {
+                            dangerSquaresForBlackKing[h + 1][w] = true;
+                        }
+                        if (h < 7 && w < 7 && (temporaryChessBoard[h + 1][w + 1] == 0 || (temporaryChessBoard[h + 1][w + 1] % 10) == 1 || (temporaryChessBoard[h + 1][w + 1] % 10) == 3))
+                        {
+                            dangerSquaresForBlackKing[h + 1][w + 1] = true;
+                        }
+                        if (w < 7 && (temporaryChessBoard[h][w + 1] == 0 || (temporaryChessBoard[h][w + 1] % 10) == 1 || (temporaryChessBoard[h][w + 1] % 10) == 3))
+                        {
+                            dangerSquaresForBlackKing[h][w + 1] = true;
+                        }
+                        break;
+
+
+                    }
+//Danger Squares for White (black pieces)
+                    case 11:
+                        if (isHumanWhite == false)
+                        {
+                            if (w != 0)
+                            {
+                                //if (temporaryChessBoard[h - 1][w - 1] != 0 && (temporaryChessBoard[h - 1][w - 1] % 10) != 1 && (temporaryChessBoard[h - 1][w - 1] % 10) != 3)
+                                //{
+                                dangerSquaresForWhiteKing[h - 1][w - 1] = true;
+                                //}
+                            }
+                            if (w != 7) {
+                                //if (temporaryChessBoard[h - 1][w + 1] != 0 && (temporaryChessBoard[h - 1][w + 1] % 10) != 1 && (temporaryChessBoard[h - 1][w + 1] % 10) != 3)
+                                //{
+                                dangerSquaresForWhiteKing[h - 1][w + 1] = true;
+                                //}
+                            }
+                        }
+                        else
+                        {
+                            if (w != 0)
+                            {
+                                //if (temporaryChessBoard[h + 1][w - 1] != 0 && (temporaryChessBoard[h + 1][w - 1] % 10) != 1 && (temporaryChessBoard[h + 1][w - 1] % 10) != 3)
+                                //{
+                                dangerSquaresForWhiteKing[h + 1][w - 1] = true;
+                                //}
+                            }
+                            if (w != 7)
+                            {
+                                //if (temporaryChessBoard[h + 1][w + 1] != 0 && (temporaryChessBoard[h + 1][w + 1] % 10) != 1 && (temporaryChessBoard[h + 1][w + 1] % 10) != 3)
+                                //{
+                                dangerSquaresForWhiteKing[h + 1][w + 1] = true;
+                                //}
+                            }
+                        }
+                        break;
+
+                    case 31:
+                        if (h > 1 && w < 7)
+                        {
+                            if (temporaryChessBoard[h - 2][w + 1] == 0 || (temporaryChessBoard[h - 2][w + 1] % 10) == 0 || (temporaryChessBoard[h - 2][w + 1] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[h - 2][w + 1] = true;
+                            }
+                        }
+                        if (h > 1 && w > 0)
+                        {
+                            if (temporaryChessBoard[h - 2][w - 1] == 0 || (temporaryChessBoard[h - 2][w - 1] % 10) == 0 || (temporaryChessBoard[h - 2][w - 1] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[h - 2][w - 1] = true;
+                            }
+                        }
+                        if (h > 0 && w > 1)
+                        {
+                            if (temporaryChessBoard[h - 1][w - 2] == 0 || (temporaryChessBoard[h - 1][w - 2] % 10) == 0 || (temporaryChessBoard[h - 1][w - 2] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[h - 1][w - 2] = true;
+                            }
+                        }
+                        if (h < 7 && w > 1)
+                        {
+                            if (temporaryChessBoard[h + 1][w - 2] == 0 || (temporaryChessBoard[h + 1][w - 2] % 10) == 0 || (temporaryChessBoard[h + 1][w - 2] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[h + 1][w - 2] = true;
+                            }
+                        }
+                        if (h < 6 && w > 0)
+                        {
+                            if (temporaryChessBoard[h + 2][w - 1] == 0 || (temporaryChessBoard[h + 2][w - 1] % 10) == 0 || (temporaryChessBoard[h + 2][w - 1] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[h + 2][w - 1] = true;
+                            }
+                        }
+                        if (h < 6 && w < 7)
+                        {
+                            if (temporaryChessBoard[h + 2][w + 1] == 0 || (temporaryChessBoard[h + 2][w + 1] % 10) == 0 || (temporaryChessBoard[h + 2][w + 1] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[h + 2][w + 1] = true;
+                            }
+                        }
+                        if (h < 7 && w < 6)
+                        {
+                            if (temporaryChessBoard[h + 1][w + 2] == 0 || (temporaryChessBoard[h + 1][w + 2] % 10) == 0 || (temporaryChessBoard[h + 1][w + 2] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[h + 1][w + 2] = true;
+                            }
+                        }
+                        if (h > 0 && w < 6)
+                        {
+                            if (temporaryChessBoard[h - 1][w + 2] == 0 || (temporaryChessBoard[h - 1][w + 2] % 10) == 0 || (temporaryChessBoard[h - 1][w + 2] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[h - 1][w + 2] = true;
+                            }
+                        }
+                        break;
+
+                    case 33:
+                    {
+                        int tempX = w + 1;
+                        int tempY = h - 1;
+                        while (tempY >= 0 && tempX <= 7)
+                        {
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                            }
+                            tempX++;
+                            tempY--;
+                        }
+                        tempX = w - 1;
+                        tempY = h - 1;
+                        while (tempY >= 0 && tempX >= 0)
+                        {
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                            }
+                            tempX--;
+                            tempY--;
+                        }
+                        tempX = w - 1;
+                        tempY = h + 1;
+                        while (tempY <= 7 && tempX >= 0)
+                        {
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                            }
+                            tempX--;
+                            tempY++;
+                        }
+                        tempX = w + 1;
+                        tempY = h + 1;
+                        while (tempY <= 7 && tempX <= 7)
+                        {
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                            }
+                            tempX++;
+                            tempY++;
+                        }
+                        break;
+                    }
+                    case 91:
+                    {
+                        int tempX = w + 1;
+                        int tempY = h - 1;
+                        while (tempY >= 0 && tempX <= 7)
+                        {
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                            }
+                            tempX++;
+                            tempY--;
+                        }
+                        tempX = w - 1;
+                        tempY = h - 1;
+                        while (tempY >= 0 && tempX >= 0)
+                        {
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                            }
+                            tempX--;
+                            tempY--;
+                        }
+                        tempX = w - 1;
+                        tempY = h + 1;
+                        while (tempY <= 7 && tempX >= 0)
+                        {
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                            }
+                            tempX--;
+                            tempY++;
+                        }
+                        tempX = w + 1;
+                        tempY = h + 1;
+                        while (tempY <= 7 && tempX <= 7)
+                        {
+                            if (((temporaryChessBoard[tempY][tempX] % 10) == 0 && temporaryChessBoard[tempY][tempX] != 0) || (temporaryChessBoard[tempY][tempX] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                                break;
+                            }
+                            if ((temporaryChessBoard[tempY][tempX] % 10) == 1 || (temporaryChessBoard[tempY][tempX] % 10) == 3)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][tempX] == 0)
+                            {
+                                dangerSquaresForWhiteKing[tempY][tempX] = true;
+                            }
+                            tempX++;
+                            tempY++;
+                        }
+
+                        {
+                            int tempY = h - 1;
+                            while (tempY >= 0)
+                            {
+                                if (((temporaryChessBoard[tempY][w] % 10) == 0 && temporaryChessBoard[tempY][w] != 0) || (temporaryChessBoard[tempY][w] % 10) == 2)
+                                {
+                                    dangerSquaresForWhiteKing[tempY][w] = true;
+                                    break;
+                                }
+                                if ((temporaryChessBoard[tempY][w] % 10) == 1 || (temporaryChessBoard[tempY][w] % 10) == 3)
+                                {
+                                    break;
+                                }
+
+                                if (temporaryChessBoard[tempY][w] == 0)
+                                {
+                                    dangerSquaresForWhiteKing[tempY][w] = true;
+                                }
+                                tempY--;
+                            }
+                            tempY = h + 1;
+                            while (tempY <= 7)
+                            {
+                                if (((temporaryChessBoard[tempY][w] % 10) == 0 && temporaryChessBoard[tempY][w] != 0) || (temporaryChessBoard[tempY][w] % 10) == 2)
+                                {
+                                    dangerSquaresForWhiteKing[tempY][w] = true;
+                                    break;
+                                }
+                                if ((temporaryChessBoard[tempY][w] % 10) == 1 || (temporaryChessBoard[tempY][w] % 10) == 3)
+                                {
+                                    break;
+                                }
+
+                                if (temporaryChessBoard[tempY][w] == 0)
+                                {
+                                    dangerSquaresForWhiteKing[tempY][w] = true;
+                                }
+                                tempY++;
+                            }
+                            int tempX = w - 1;
+                            while (tempX >= 0)
+                            {
+                                if (((temporaryChessBoard[h][tempX] % 10) == 0 && temporaryChessBoard[h][tempX] != 0) || (temporaryChessBoard[h][tempX] % 10) == 2)
+                                {
+                                    dangerSquaresForWhiteKing[h][tempX] = true;
+                                    break;
+                                }
+                                if ((temporaryChessBoard[h][tempX] % 10) == 1 || (temporaryChessBoard[h][tempX] % 10) == 3)
+                                {
+                                    break;
+                                }
+
+                                if (temporaryChessBoard[h][tempX] == 0)
+                                {
+                                    dangerSquaresForWhiteKing[h][tempX] = true;
+                                }
+                                tempX--;
+                            }
+                            tempX = w + 1;
+                            while (tempX <= 7)
+                            {
+                                if (((temporaryChessBoard[h][tempX] % 10) == 0 && temporaryChessBoard[h][tempX] != 0) || (temporaryChessBoard[h][tempX] % 10) == 2)
+                                {
+                                    dangerSquaresForWhiteKing[h][tempX] = true;
+                                    break;
+                                }
+                                if ((temporaryChessBoard[h][tempX] % 10) == 1 || (temporaryChessBoard[h][tempX] % 10) == 3)
+                                {
+                                    break;
+                                }
+
+                                if (temporaryChessBoard[h][tempX] == 0)
+                                {
+                                    dangerSquaresForWhiteKing[h][tempX] = true;
+                                }
+                                tempX++;
+                            }
+                        }
+                        break;
+                    }
+
+                    case 51:
+                    {
+                        int tempY = h - 1;
+                        while (tempY >= 0)
+                        {
+                            if (((temporaryChessBoard[tempY][w] % 10) == 0 && temporaryChessBoard[tempY][w] != 0) || (temporaryChessBoard[tempY][w] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[tempY][w] = true;
+                                break;
+                            }
+                            if ((temporaryChessBoard[tempY][w] % 10) == 1 || (temporaryChessBoard[tempY][w] % 10) == 3)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][w] == 0)
+                            {
+                                dangerSquaresForWhiteKing[tempY][w] = true;
+                            }
+                            tempY--;
+                        }
+                        tempY = h + 1;
+                        while (tempY <= 7)
+                        {
+                            if (((temporaryChessBoard[tempY][w] % 10) == 0 && temporaryChessBoard[tempY][w] != 0) || (temporaryChessBoard[tempY][w] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[tempY][w] = true;
+                                break;
+                            }
+                            if ((temporaryChessBoard[tempY][w] % 10) == 1 || (temporaryChessBoard[tempY][w] % 10) == 3)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[tempY][w] == 0)
+                            {
+                                dangerSquaresForWhiteKing[tempY][w] = true;
+                            }
+                            tempY++;
+                        }
+                        int tempX = w - 1;
+                        while (tempX >= 0)
+                        {
+                            if (((temporaryChessBoard[h][tempX] % 10) == 0 && temporaryChessBoard[h][tempX] != 0) || (temporaryChessBoard[h][tempX] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[h][tempX] = true;
+                                break;
+                            }
+                            if ((temporaryChessBoard[h][tempX] % 10) == 1 || (temporaryChessBoard[h][tempX] % 10) == 3)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[h][tempX] == 0)
+                            {
+                                dangerSquaresForWhiteKing[h][tempX] = true;
+                            }
+                            tempX--;
+                        }
+                        tempX = w + 1;
+                        while (tempX <= 7)
+                        {
+                            if (((temporaryChessBoard[h][tempX] % 10) == 0 && temporaryChessBoard[h][tempX] != 0) || (temporaryChessBoard[h][tempX] % 10) == 2)
+                            {
+                                dangerSquaresForWhiteKing[h][tempX] = true;
+                                break;
+                            }
+                            if ((temporaryChessBoard[h][tempX] % 10) == 1 || (temporaryChessBoard[h][tempX] % 10) == 3)
+                            {
+                                break;
+                            }
+
+                            if (temporaryChessBoard[h][tempX] == 0)
+                            {
+                                dangerSquaresForWhiteKing[h][tempX] = true;
+                            }
+                            tempX++;
+                        }
+                    }
+                    break;
+
+                    case 101:
+                    {
+                        if (h > 0 && w < 7 && (temporaryChessBoard[h - 1][w + 1] == 0 || (temporaryChessBoard[h - 1][w + 1] % 10) == 0 || (temporaryChessBoard[h - 1][w + 1] % 10) == 2))
+                        {
+                            dangerSquaresForWhiteKing[h - 1][w + 1] = true;
+                        }
+                        if (h > 0 && (temporaryChessBoard[h - 1][w] == 0 || (temporaryChessBoard[h - 1][w] % 10) == 0 || (temporaryChessBoard[h - 1][w] % 10) == 2))
+                        {
+                            dangerSquaresForWhiteKing[h - 1][w] = true;
+                        }
+                        if (h > 0 && w > 0 && (temporaryChessBoard[h - 1][w - 1] == 0 || (temporaryChessBoard[h - 1][w - 1] % 10) == 0 || (temporaryChessBoard[h - 1][w - 1] % 10) == 2))
+                        {
+                            dangerSquaresForWhiteKing[h - 1][w - 1] = true;
+                        }
+                        if (w > 0 && (temporaryChessBoard[h][w - 1] == 0 || (temporaryChessBoard[h][w - 1] % 10) == 0 || (temporaryChessBoard[h][w - 1] % 10) == 2))
+                        {
+                            dangerSquaresForWhiteKing[h][w - 1] = true;
+                        }
+                        if (h < 7 && w > 0 && (temporaryChessBoard[h + 1][w - 1] == 0 || (temporaryChessBoard[h + 1][w - 1] % 10) == 0 || (temporaryChessBoard[h + 1][w - 1] % 10) == 2))
+                        {
+                            dangerSquaresForWhiteKing[h + 1][w - 1] = true;
+                        }
+                        if (h < 7 && (temporaryChessBoard[h + 1][w] == 0 || (temporaryChessBoard[h + 1][w] % 10) == 0 || (temporaryChessBoard[h + 1][w] % 10) == 2))
+                        {
+                            dangerSquaresForWhiteKing[h + 1][w] = true;
+                        }
+                        if (h < 7 && w < 7 && (temporaryChessBoard[h + 1][w + 1] == 0 || (temporaryChessBoard[h + 1][w + 1] % 10) == 0 || (temporaryChessBoard[h + 1][w + 1] % 10) == 2))
+                        {
+                            dangerSquaresForWhiteKing[h + 1][w + 1] = true;
+                        }
+                        if (w < 7 && (temporaryChessBoard[h][w + 1] == 0 || (temporaryChessBoard[h][w + 1] % 10) == 0 || (temporaryChessBoard[h][w + 1] % 10) == 2))
+                        {
+                            dangerSquaresForWhiteKing[h][w + 1] = true;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
+
+static void updateIsKingInCheck()
+{
+    resetDangerSquares();
+    updateDangerSquares();
+
+    for (int h = 0; h < 8; h++)
+    {
+        for (int w = 0; w < 8; w++)
+        {
+            if (chessBoard[h][w] == 100)
+            {
+                if (dangerSquaresForWhiteKing[h][w] == true)
+                {
+                    isWhiteKingInCheck = true;
+                }
+                else
+                {
+                    isWhiteKingInCheck = false;
+                }
+            }
+
+            if (chessBoard[h][w] == 101)
+            {
+                if (dangerSquaresForBlackKing[h][w] == true)
+                {
+                    isBlackKingInCheck = true;
+                }
+                else
+                {
+                    isBlackKingInCheck = false;
+                }
+            }
+        }
+    }
+}
+
 static void updateViableMoves()
 {
+    updateIsKingInCheck();
+
     if (isChessPieceSelected == true)
     {
         switch (chessBoard[selectedPieceY][selectedPieceX])
         {
-            //White Pawn Movement:
+//White Pawn Movement:
         case 10:
             if (isHumanWhite == true)
             {
@@ -306,7 +1348,7 @@ static void updateViableMoves()
                 }
             }
             break;
-            //Black Pawn Movement
+//Black Pawn Movement
         case 11:
             if (isHumanWhite == false)
             {
@@ -351,8 +1393,8 @@ static void updateViableMoves()
                 }
             }
             break;
-            //White Knight Movement from Upper Right Corner Counterclockwise
-        case 30: // 
+//White Knight Movement from Upper Right Corner Counterclockwise
+        case 30: 
             if (selectedPieceY > 1 && selectedPieceX < 7)
             {
                 if (chessBoard[selectedPieceY - 2][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1] % 10) == 3)
@@ -410,7 +1452,7 @@ static void updateViableMoves()
                 }
             }
             break;
-            //Black Knight Movement from Upper Right Corner Counterclockwise
+//Black Knight Movement from Upper Right Corner Counterclockwise
         case 31:
             if (selectedPieceY > 1 && selectedPieceX < 7)
             {
@@ -469,7 +1511,7 @@ static void updateViableMoves()
                 }
             }
             break;
-            //White Bishop Movement from Upper Right Corner Counterclockwise
+//White Bishop Movement from Upper Right Corner Counterclockwise
         case 32:
         {
             int tempX = selectedPieceX + 1;
@@ -988,7 +2030,7 @@ static void updateViableMoves()
                     tempX++;
                 }
             }
-            break;
+        break;
         }
 //White Rook
         case 50:
@@ -1073,7 +2115,7 @@ static void updateViableMoves()
                 tempX++;
             }
         }
-            break;
+        break;
 //Black Rook
         case 51:
         {   //up
@@ -1163,35 +2205,59 @@ static void updateViableMoves()
         {
             if (selectedPieceY > 0 && selectedPieceX < 7 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) == 3))
             {
-                isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
+                if (dangerSquaresForWhiteKing[selectedPieceY - 1][selectedPieceX + 1] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
+                }
             }
             if (selectedPieceY > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX] % 10) == 3))
             {
-                isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true;
+                if (dangerSquaresForWhiteKing[selectedPieceY - 1][selectedPieceX] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true;
+                }
             }
             if (selectedPieceY > 0 && selectedPieceX > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) == 3))
             {
-                isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
+                if (dangerSquaresForWhiteKing[selectedPieceY - 1][selectedPieceX - 1] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
+                }
             }
             if (selectedPieceX > 0 && (chessBoard[selectedPieceY][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY][selectedPieceX - 1] % 10) == 3))
             {
-                isChessSquareViableMove[selectedPieceY][selectedPieceX - 1] = true;
+                if (dangerSquaresForWhiteKing[selectedPieceY][selectedPieceX - 1] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY][selectedPieceX - 1] = true;
+                }
             }
             if (selectedPieceY < 7 && selectedPieceX > 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) == 3))
             {
-                isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
+                if (dangerSquaresForWhiteKing[selectedPieceY + 1][selectedPieceX - 1] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
+                }
             }
             if (selectedPieceY < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX] % 10) == 3))
             {
-                isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true;
+                if (dangerSquaresForWhiteKing[selectedPieceY + 1][selectedPieceX] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true;
+                }
             }
             if (selectedPieceY < 7 && selectedPieceX < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) == 3))
             {
-                isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
+                if (dangerSquaresForWhiteKing[selectedPieceY + 1][selectedPieceX + 1] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
+                }
             }
             if (selectedPieceX < 7 && (chessBoard[selectedPieceY][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY][selectedPieceX + 1] % 10) == 3))
             {
-                isChessSquareViableMove[selectedPieceY][selectedPieceX + 1] = true;
+                if (dangerSquaresForWhiteKing[selectedPieceY][selectedPieceX + 1] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY][selectedPieceX + 1] = true;
+                }
             }
         }
         break;
@@ -1200,35 +2266,59 @@ static void updateViableMoves()
         {
             if (selectedPieceY > 0 && selectedPieceX < 7 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) == 2))
             {
-                isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
+                if (dangerSquaresForBlackKing[selectedPieceY - 1][selectedPieceX + 1] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
+                }
             }
             if (selectedPieceY > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX] % 10) == 2))
             {
-                isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true;
+                if (dangerSquaresForBlackKing[selectedPieceY - 1][selectedPieceX] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true;
+                }
             }
             if (selectedPieceY > 0 && selectedPieceX > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) == 2))
             {
-                isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
+                if (dangerSquaresForBlackKing[selectedPieceY - 1][selectedPieceX - 1] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
+                }
             }
             if (selectedPieceX > 0 && (chessBoard[selectedPieceY][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY][selectedPieceX - 1] % 10) == 2))
             {
-                isChessSquareViableMove[selectedPieceY][selectedPieceX - 1] = true;
+                if (dangerSquaresForBlackKing[selectedPieceY][selectedPieceX - 1] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY][selectedPieceX - 1] = true;
+                }
             }
             if (selectedPieceY < 7 && selectedPieceX > 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) == 2))
             {
-                isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
+                if (dangerSquaresForBlackKing[selectedPieceY + 1][selectedPieceX - 1] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
+                }
             }
             if (selectedPieceY < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX] % 10) == 2))
             {
-                isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true;
+                if (dangerSquaresForBlackKing[selectedPieceY + 1][selectedPieceX] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true;
+                }
             }
             if (selectedPieceY < 7 && selectedPieceX < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) == 2))
             {
-                isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
+                if (dangerSquaresForBlackKing[selectedPieceY + 1][selectedPieceX + 1] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
+                }
             }
             if (selectedPieceX < 7 && (chessBoard[selectedPieceY][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY][selectedPieceX + 1] % 10) == 2))
             {
-                isChessSquareViableMove[selectedPieceY][selectedPieceX + 1] = true;
+                if (dangerSquaresForBlackKing[selectedPieceY][selectedPieceX + 1] == false)
+                {
+                    isChessSquareViableMove[selectedPieceY][selectedPieceX + 1] = true;
+                }
             }
         }
         break;
@@ -1330,6 +2420,7 @@ int main(int, char**)
     ID3D11ShaderResourceView* squarec = NULL; LoadTextureFromFile("assets/squarec.png", &squarec, &my_image_width, &my_image_height);
     ID3D11ShaderResourceView* squared = NULL; LoadTextureFromFile("assets/squared.png", &squared, &my_image_width, &my_image_height);
     ID3D11ShaderResourceView* squarel = NULL; LoadTextureFromFile("assets/squarel.png", &squarel, &my_image_width, &my_image_height);
+    ID3D11ShaderResourceView* squarer = NULL; LoadTextureFromFile("assets/squarer.png", &squarer, &my_image_width, &my_image_height);
     ID3D11ShaderResourceView* bb = NULL; LoadTextureFromFile("assets/bb.png", &bb, &my_image_width, &my_image_height);
     ID3D11ShaderResourceView* bk = NULL; LoadTextureFromFile("assets/bk.png", &bk, &my_image_width, &my_image_height);
     ID3D11ShaderResourceView* bn = NULL; LoadTextureFromFile("assets/bn.png", &bn, &my_image_width, &my_image_height);
@@ -1421,6 +2512,36 @@ int main(int, char**)
             }
         }
 
+        //Drawing Check Indicator
+        if (isWhiteKingInCheck == true)
+        {
+            for (int w = 0; w < 8; w++)
+            {
+                for (int h = 0; h < 8; h++)
+                {
+                    if (chessBoard[h][w] == 100)
+                    {
+                        ImGui::SetCursorPos(ImVec2((w * 60) + starterBoardPosX, (h * 60) + starterBoardPosY));
+                        ImGui::Image((void*)squarer, ImVec2(my_image_width, my_image_height));
+                    }
+                }
+            }
+        }
+        if (isBlackKingInCheck == true)
+        {
+            for (int w = 0; w < 8; w++)
+            {
+                for (int h = 0; h < 8; h++)
+                {
+                    if (chessBoard[h][w] == 101)
+                    {
+                        ImGui::SetCursorPos(ImVec2((w * 60) + starterBoardPosX, (h * 60) + starterBoardPosY));
+                        ImGui::Image((void*)squarer, ImVec2(my_image_width, my_image_height));
+                    }
+                }
+            }
+        }
+
         //Drawing Selected Square
         if (isChessPieceSelected == true)
         {
@@ -1500,6 +2621,7 @@ int main(int, char**)
             isAITurnedOn = false;
             resetisChessSquareViableMove();
             isWhitesTurn = true;
+            updateIsKingInCheck();
         }
 
         ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY - 50));
@@ -1590,6 +2712,8 @@ int main(int, char**)
 
                 if (isWhitesTurn == true) { isWhitesTurn = false; }
                 else { isWhitesTurn = true; }
+
+                updateIsKingInCheck();
             }
         //
             if (isAITurnedOn == false)
@@ -1663,7 +2787,6 @@ int main(int, char**)
 
                 }
             }
-
         }
 
 
