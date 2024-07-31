@@ -48,6 +48,10 @@ char FENinput[fenLength] = "";
 bool isHumanPlayingAgainstAI = false;
 bool isAITurnedOn = false;
 bool isWhitesTurn = true;
+bool gameEnded = false;
+bool didHumanWin = false;
+bool isItDraw = false;
+bool isAnyMoveViable = true;
 
 bool dangerSquaresForWhiteKing[8][8];
 bool isWhiteKingInCheck = false;
@@ -2891,6 +2895,100 @@ static void updateViableMoves()
     updateIsKingInCheck();
 }
 
+static void isGameEnded()
+{
+    isAnyMoveViable = false;
+    isChessPieceSelected = true;
+
+    for (int w = 0; w < 8; w++)
+    {
+        for (int h = 0; h < 8; h++)
+        {
+            if (isWhitesTurn == true)
+            {
+                if (chessBoard[h][w] != 0 && ((chessBoard[h][w] % 10) == 0 || (chessBoard[h][w] % 10) == 2))
+                {
+                    selectedPieceY = h;
+                    selectedPieceX = w;
+                    updateViableMoves();
+                    for (int i = 0; i < 8; i++)
+                    {
+                        for (int j = 0; j < 8; j++)
+                        {
+                            if (isChessSquareViableMove[i][j] == true)
+                            {
+                                isAnyMoveViable = true;
+                            }
+                        }
+                    }
+                }
+            }
+            if (isWhitesTurn == false)
+            {
+                if (chessBoard[h][w] != 0 && ((chessBoard[h][w] % 10) == 1 || (chessBoard[h][w] % 10) == 3))
+                {
+                    selectedPieceY = h;
+                    selectedPieceX = w;
+                    updateViableMoves();
+                    for (int i = 0; i < 8; i++)
+                    {
+                        for (int j = 0; j < 8; j++)
+                        {
+                            if (isChessSquareViableMove[i][j] == true)
+                            {
+                                isAnyMoveViable = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (isAnyMoveViable == false)
+    {
+        gameEnded = true;
+        if (isWhitesTurn == true)
+        {
+            if (isWhiteKingInCheck == true)
+            {
+                if (isHumanWhite == true)
+                {
+                    didHumanWin = false;
+                }
+                else
+                {
+                    didHumanWin = true;
+                }
+            }
+            else
+            {
+                isItDraw = true;
+            }
+        }
+        else
+        {
+            if (isBlackKingInCheck == true)
+            {
+                if (isHumanWhite == true)
+                {
+                    didHumanWin = true;
+                }
+                else
+                {
+                    didHumanWin = false;
+                }
+            }
+            else
+            {
+                isItDraw = true;
+            }
+        }
+    }
+
+    isChessPieceSelected = false;
+    resetisChessSquareViableMove();
+}
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -2944,9 +3042,9 @@ bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_sr
 int main(int, char**)
 {
     //Create application window
-    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"Engine", nullptr };
+    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"Chesster v1", nullptr };
     ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Engine", WS_OVERLAPPEDWINDOW, 100, 100, windowWidth, windowHeight, nullptr, nullptr, wc.hInstance, nullptr);
+    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Chesster v1", WS_OVERLAPPEDWINDOW, 100, 100, windowWidth, windowHeight, nullptr, nullptr, wc.hInstance, nullptr);
 
     //Initialize Direct3D
     if (!CreateDeviceD3D(hwnd))
@@ -3107,19 +3205,6 @@ int main(int, char**)
             }
         }
 
-        //Test Drawing Danger Squares
-        for (int w = 0; w < 8; w++)
-        {
-            for (int h = 0; h < 8; h++)
-            {
-                if (dangerSquaresForWhiteKing[h][w] == true)
-                {
-                    ImGui::SetCursorPos(ImVec2((w * 60) + starterBoardPosX, (h * 60) + starterBoardPosY));
-                    ImGui::Image((void*)squarer, ImVec2(my_image_width, my_image_height));
-                }
-            }
-        }
-
         //Drawing Selected Square
         if (isChessPieceSelected == true)
         {
@@ -3200,6 +3285,10 @@ int main(int, char**)
             resetisChessSquareViableMove();
             isWhitesTurn = true;
             updateIsKingInCheck();
+            gameEnded = false;
+            didHumanWin = false;
+            isItDraw = false;
+            isAnyMoveViable = true;
         }
 
         ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY - 50));
@@ -3267,113 +3356,136 @@ int main(int, char**)
             ImGui::SetCursorPos(ImVec2(starterBoardPosX + 505, starterBoardPosY + 535));
             ImGui::Text("promotion is always to queen.");
 
-            if (isHumanWhite == true)
+        if (isHumanWhite == true)
+        {
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY + 485));
+            ImGui::Text("You are playing with white.");
+        }
+        else
+        {
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY + 485));
+            ImGui::Text("You are playing with black.");
+        }
+
+        if (gameEnded == true)
+        {
+            ImGui::SetCursorPos(ImVec2(my_image_width * 8 + starterBoardPosX + 30, my_image_height * 4 + starterBoardPosY - 7));
+            if (didHumanWin == true)
             {
-                ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY + 485));
-                ImGui::Text("You are playing with white.");
+                ImGui::Text("It's a Win :)");
             }
             else
             {
-                ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY + 485));
-                ImGui::Text("You are playing with black.");
-            }
-
-        //Moving Chess Pieces
-        ImVec2 mousePosition = ImGui::GetMousePos();   
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && mousePosition.x > 80 && mousePosition.x < 560 && mousePosition.y > 100 && mousePosition.y < 580)
-        {
-            int X = (mousePosition.x - 80)/60;
-            int Y = (mousePosition.y - 100)/60;
-
-            //Piece Move for both colors
-            if (isChessPieceSelected == true && isChessSquareViableMove[Y][X] == true)
-            {
-                int whatPieceToMove = chessBoard[selectedPieceY][selectedPieceX];
-                chessBoard[selectedPieceY][selectedPieceX] = 0;
-                chessBoard[Y][X] = whatPieceToMove;
-                if (isGameStarted == false){isGameStarted = true;}
-                resetisChessSquareViableMove();
-
-                if (isWhitesTurn == true) { isWhitesTurn = false; }
-                else { isWhitesTurn = true; }
-
-                updatePawnToQueenPromotion();
-                updateIsKingInCheck();
-            }
-        //
-            if (isAITurnedOn == false)
-            {
-                //For White
-                //Piece Deselection
-                if (isWhitesTurn == true && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
+                if (isItDraw == true)
                 {
-                    isChessPieceSelected = false;
-                    resetisChessSquareViableMove();
+                    ImGui::Text("It's a Draw :|");
                 }
-                //Piece Selection
-                if (isWhitesTurn == true && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 0 || chessBoard[Y][X] % 10 == 2))
+                else
                 {
-                    isChessPieceSelected = true;
-                    selectedPieceX = X;
-                    selectedPieceY = Y;
-                    updateViableMoves();
-                }
-
-                //For Black
-                //Piece Deselection
-                if (isWhitesTurn == false && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
-                {
-                    isChessPieceSelected = false;
-                    resetisChessSquareViableMove();
-                }
-                //Piece Selection
-                if (isWhitesTurn == false && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 1 || chessBoard[Y][X] % 10 == 3))
-                {
-                    isChessPieceSelected = true;
-                    selectedPieceX = X;
-                    selectedPieceY = Y;
-                    updateViableMoves();
-
-                }
-            }
-        //
-            if (isAITurnedOn == true)
-            {
-                //For White
-                //Piece Deselection
-                if (isWhitesTurn == true && isHumanWhite == true && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
-                {
-                    isChessPieceSelected = false;
-                    resetisChessSquareViableMove();
-                }
-                //Piece Selection
-                if (isWhitesTurn == true && isHumanWhite == true && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 0 || chessBoard[Y][X] % 10 == 2))
-                {
-                    isChessPieceSelected = true;
-                    selectedPieceX = X;
-                    selectedPieceY = Y;
-                    updateViableMoves();
-                }
-
-                //For Black
-                //Piece Deselection
-                if (isWhitesTurn == false && isHumanWhite == false && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
-                {
-                    isChessPieceSelected = false;
-                    resetisChessSquareViableMove();
-                }
-                //Piece Selection
-                if (isWhitesTurn == false && isHumanWhite == false && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 1 || chessBoard[Y][X] % 10 == 3))
-                {
-                    isChessPieceSelected = true;
-                    selectedPieceX = X;
-                    selectedPieceY = Y;
-                    updateViableMoves();
-
+                    ImGui::Text("It's a Loss :( ");
                 }
             }
         }
 
+        if (gameEnded == false)
+        {
+            //Moving Chess Pieces
+            ImVec2 mousePosition = ImGui::GetMousePos();
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && mousePosition.x > 80 && mousePosition.x < 560 && mousePosition.y > 100 && mousePosition.y < 580)
+            {
+                int X = (mousePosition.x - 80) / 60;
+                int Y = (mousePosition.y - 100) / 60;
+
+                //Piece Move for both colors
+                if (isChessPieceSelected == true && isChessSquareViableMove[Y][X] == true)
+                {
+                    int whatPieceToMove = chessBoard[selectedPieceY][selectedPieceX];
+                    chessBoard[selectedPieceY][selectedPieceX] = 0;
+                    chessBoard[Y][X] = whatPieceToMove;
+                    if (isGameStarted == false) { isGameStarted = true; }
+                    resetisChessSquareViableMove();
+
+                    if (isWhitesTurn == true) { isWhitesTurn = false; }
+                    else { isWhitesTurn = true; }
+
+                    updatePawnToQueenPromotion();
+                    updateIsKingInCheck();
+                    isGameEnded();
+                }
+                //
+                if (isAITurnedOn == false)
+                {
+                    //For White
+                    //Piece Deselection
+                    if (isWhitesTurn == true && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
+                    {
+                        isChessPieceSelected = false;
+                        resetisChessSquareViableMove();
+                    }
+                    //Piece Selection
+                    if (isWhitesTurn == true && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 0 || chessBoard[Y][X] % 10 == 2))
+                    {
+                        isChessPieceSelected = true;
+                        selectedPieceX = X;
+                        selectedPieceY = Y;
+                        updateViableMoves();
+                    }
+
+                    //For Black
+                    //Piece Deselection
+                    if (isWhitesTurn == false && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
+                    {
+                        isChessPieceSelected = false;
+                        resetisChessSquareViableMove();
+                    }
+                    //Piece Selection
+                    if (isWhitesTurn == false && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 1 || chessBoard[Y][X] % 10 == 3))
+                    {
+                        isChessPieceSelected = true;
+                        selectedPieceX = X;
+                        selectedPieceY = Y;
+                        updateViableMoves();
+
+                    }
+                }
+                //
+                if (isAITurnedOn == true)
+                {
+                    //For White
+                    //Piece Deselection
+                    if (isWhitesTurn == true && isHumanWhite == true && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
+                    {
+                        isChessPieceSelected = false;
+                        resetisChessSquareViableMove();
+                    }
+                    //Piece Selection
+                    if (isWhitesTurn == true && isHumanWhite == true && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 0 || chessBoard[Y][X] % 10 == 2))
+                    {
+                        isChessPieceSelected = true;
+                        selectedPieceX = X;
+                        selectedPieceY = Y;
+                        updateViableMoves();
+                    }
+
+                    //For Black
+                    //Piece Deselection
+                    if (isWhitesTurn == false && isHumanWhite == false && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
+                    {
+                        isChessPieceSelected = false;
+                        resetisChessSquareViableMove();
+                    }
+                    //Piece Selection
+                    if (isWhitesTurn == false && isHumanWhite == false && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 1 || chessBoard[Y][X] % 10 == 3))
+                    {
+                        isChessPieceSelected = true;
+                        selectedPieceX = X;
+                        selectedPieceY = Y;
+                        updateViableMoves();
+
+                    }
+                }
+            }
+        }
 
 
         ImGui::End();
@@ -3484,11 +3596,3 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return ::DefWindowProcW(hWnd, msg, wParam, lParam);
 }
 
-//Invisible buttons
-//ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.f, 0.f, 0.f, 0.f));
-//ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.f, 0.f, 0.f, 0.f));
-//ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.f, 0.f, 0.f, 0.f));
-//
-// 
-// 
-//ImGui::PopStyleColor(3);
