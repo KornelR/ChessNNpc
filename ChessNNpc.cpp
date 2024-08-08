@@ -52,6 +52,13 @@ bool gameEnded = false;
 bool didHumanWin = false;
 bool isItDraw = false;
 bool isAnyMoveViable = true;
+bool isWhiteKingCastlingPossible = true;
+bool isWhiteQueenCastlingPossible = true;
+bool isBlackKingCastlingPossible = true;
+bool isBlackQueenCastlingPossible = true;
+bool isEnPassantForWhitePossible = false;
+bool isEnPassantForBlackPossible = false;
+int enPassantX = 0;
 
 bool dangerSquaresForWhiteKing[8][8];
 bool isWhiteKingInCheck = false;
@@ -261,8 +268,54 @@ static void fenToBoardPosition(char FenPos[fenLength])
     }
     if (FenPos[i + 1] == 'b')
     {
-        boardFlip();
+        isWhitesTurn = false;
     }
+    i += 3;
+
+    for (; i < fenLength && FenPos[i] != ' '; i++)
+    {
+        switch (FenPos[i])
+        {
+
+        case 'K':
+            isWhiteKingCastlingPossible = true;
+            break;
+        case 'Q':
+            isWhiteQueenCastlingPossible = true;
+            break;
+        case 'k':
+            isBlackKingCastlingPossible = true;
+            break;
+        case 'q':
+            isBlackQueenCastlingPossible = true;
+            break;
+        case '-':
+            isWhiteKingCastlingPossible = false;
+            isWhiteQueenCastlingPossible = false;
+            isBlackKingCastlingPossible = false;
+            isBlackQueenCastlingPossible = false;
+            break;
+
+        }
+    }
+    i++;
+    switch (FenPos[i])
+    {
+    case '-':
+        break;
+    case 'e':
+        isEnPassantForBlackPossible = true;
+        i++;
+        enPassantX = FenPos[i] - '0';
+        break;
+    case 'c':
+        isEnPassantForWhitePossible = true;
+        i++;
+        enPassantX = FenPos[i] - '0';
+        break;
+    }
+    
+
 }
 
 static void updatePawnToQueenPromotion()
@@ -1310,6 +1363,17 @@ static void updateViableMoves()
                         }
                         isMoveHypothetical = false;
                     }
+                    //EnPassant
+                    if (isEnPassantForWhitePossible == true && (selectedPieceX - 1) == enPassantX && selectedPieceY == 3)
+                    {
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 1);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
+                        }
+                        isMoveHypothetical = false;
+                    }
                 }
                 if (selectedPieceX != 7) {
                     if (chessBoard[selectedPieceY - 1][selectedPieceX + 1] != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) != 2)
@@ -1322,7 +1386,19 @@ static void updateViableMoves()
                         }
                         isMoveHypothetical = false;
                     }
+                    //EnPassant
+                    if (isEnPassantForWhitePossible == true && (selectedPieceX + 1) == enPassantX && selectedPieceY == 3)
+                    {
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 1);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
+                        }
+                        isMoveHypothetical = false;
+                    }
                 }
+
             }
             else
             {
@@ -1361,9 +1437,31 @@ static void updateViableMoves()
                         }
                         isMoveHypothetical = false;
                     }
+                    //EnPassant
+                    if (isEnPassantForWhitePossible == true && (selectedPieceX - 1) == enPassantX && selectedPieceY == 4)
+                    {
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 1);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
+                        }
+                        isMoveHypothetical = false;
+                    }
                 }
                 if (selectedPieceX != 7) {
                     if (chessBoard[selectedPieceY + 1][selectedPieceX + 1] != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) != 2)
+                    {
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 1);
+                        updateIsKingInCheck();
+                        if (isWhiteKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
+                        }
+                        isMoveHypothetical = false;
+                    }
+                    //EnPassant
+                    if (isEnPassantForWhitePossible == true && (selectedPieceX + 1) == enPassantX && selectedPieceY == 4)
                     {
                         makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 1);
                         updateIsKingInCheck();
@@ -1415,9 +1513,31 @@ static void updateViableMoves()
                         }
                         isMoveHypothetical = false;
                     }
+                    //EnPassant
+                    if (isEnPassantForBlackPossible == true && (selectedPieceX - 1) == enPassantX && selectedPieceY == 3)
+                    {
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 1);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
+                        }
+                        isMoveHypothetical = false;
+                    }
                 }
                 if (selectedPieceX != 7) {
                     if (chessBoard[selectedPieceY - 1][selectedPieceX + 1] != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) != 1 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) != 3)
+                    {
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 1);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
+                        }
+                        isMoveHypothetical = false;
+                    }
+                    //EnPassant
+                    if (isEnPassantForBlackPossible == true && (selectedPieceX + 1) == enPassantX && selectedPieceY == 3)
                     {
                         makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 1);
                         updateIsKingInCheck();
@@ -1466,9 +1586,31 @@ static void updateViableMoves()
                         }
                         isMoveHypothetical = false;
                     }
+                    //EnPassant
+                    if (isEnPassantForBlackPossible == true && (selectedPieceX - 1) == enPassantX && selectedPieceY == 4)
+                    {
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 1);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
+                        }
+                        isMoveHypothetical = false;
+                    }
                 }
                 if (selectedPieceX != 7) {
                     if (chessBoard[selectedPieceY + 1][selectedPieceX + 1] != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) != 1 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) != 3)
+                    {
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 1);
+                        updateIsKingInCheck();
+                        if (isBlackKingInCheck == false)
+                        {
+                            isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
+                        }
+                        isMoveHypothetical = false;
+                    }
+                    //EnPassant
+                    if (isEnPassantForBlackPossible == true && (selectedPieceX + 1) == enPassantX && selectedPieceY == 4)
                     {
                         makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 1);
                         updateIsKingInCheck();
@@ -2827,6 +2969,43 @@ static void updateViableMoves()
                     isChessSquareViableMove[selectedPieceY][selectedPieceX + 1] = true;
                 }
             }
+
+            //Castling
+            if (isHumanWhite == true)
+            {
+                if (isWhiteKingCastlingPossible == true && chessBoard[7][5] == 0 && chessBoard[7][6] == 0)
+                {
+                    if (dangerSquaresForWhiteKing[7][5] == false && dangerSquaresForWhiteKing[7][6] == false)
+                    {
+                        isChessSquareViableMove[7][6] = true;
+                    }
+                }
+                if (isWhiteQueenCastlingPossible == true && chessBoard[7][1] == 0 && chessBoard[7][2] == 0 && chessBoard[7][3] == 0)
+                {
+                    if (dangerSquaresForWhiteKing[7][2] == false && dangerSquaresForWhiteKing[7][3] == false)
+                    {
+                        isChessSquareViableMove[7][2] = true;
+                    }
+                }
+            }
+            else
+            {
+                if (isWhiteKingCastlingPossible == true && chessBoard[0][1] == 0 && chessBoard[0][2] == 0)
+                {
+                    if (dangerSquaresForWhiteKing[0][1] == false && dangerSquaresForWhiteKing[0][2] == false)
+                    {
+                        isChessSquareViableMove[0][1] = true;
+                    }
+                }
+                if (isWhiteQueenCastlingPossible == true && chessBoard[0][4] == 0 && chessBoard[0][5] == 0 && chessBoard[0][6] == 0)
+                {
+                    if (dangerSquaresForWhiteKing[0][4] == false && dangerSquaresForWhiteKing[0][5] == false)
+                    {
+                        isChessSquareViableMove[0][5] = true;
+                    }
+                }
+            }
+
         }
         break;
 //Black King from Upper Right Counterclockwise
@@ -2886,6 +3065,42 @@ static void updateViableMoves()
                 if (dangerSquaresForBlackKing[selectedPieceY][selectedPieceX + 1] == false)
                 {
                     isChessSquareViableMove[selectedPieceY][selectedPieceX + 1] = true;
+                }
+            }
+
+            //Castling
+            if (isHumanWhite == false)
+            {
+                if (isBlackKingCastlingPossible == true && chessBoard[7][1] == 0 && chessBoard[7][2] == 0)
+                {
+                    if (dangerSquaresForBlackKing[7][1] == false && dangerSquaresForBlackKing[7][2] == false)
+                    {
+                        isChessSquareViableMove[7][1] = true;
+                    }
+                }
+                if (isBlackQueenCastlingPossible == true && chessBoard[7][4] == 0 && chessBoard[7][5] == 0 && chessBoard[7][6] == 0)
+                {
+                    if (dangerSquaresForBlackKing[7][4] == false && dangerSquaresForBlackKing[7][5] == false)
+                    {
+                        isChessSquareViableMove[7][5] = true;
+                    }
+                }
+            }
+            else
+            {
+                if (isBlackKingCastlingPossible == true && chessBoard[0][5] == 0 && chessBoard[0][6] == 0)
+                {
+                    if (dangerSquaresForBlackKing[0][5] == false && dangerSquaresForBlackKing[0][6] == false)
+                    {
+                        isChessSquareViableMove[0][6] = true;
+                    }
+                }
+                if (isBlackQueenCastlingPossible == true && chessBoard[0][1] == 0 && chessBoard[0][2] == 0 && chessBoard[0][3] == 0)
+                {
+                    if (dangerSquaresForBlackKing[0][2] == false && dangerSquaresForBlackKing[0][3] == false)
+                    {
+                        isChessSquareViableMove[0][2] = true;
+                    }
                 }
             }
         }
@@ -3289,6 +3504,13 @@ int main(int, char**)
             didHumanWin = false;
             isItDraw = false;
             isAnyMoveViable = true;
+            isWhiteKingCastlingPossible = true;
+            isWhiteQueenCastlingPossible = true;
+            isBlackKingCastlingPossible = true;
+            isBlackQueenCastlingPossible = true;
+            isEnPassantForWhitePossible = false;
+            isEnPassantForBlackPossible = false;
+            enPassantX = 0;
         }
 
         ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY - 50));
@@ -3342,7 +3564,7 @@ int main(int, char**)
             ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 320));
             ImGui::Text("Once the game is started you");
             ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 340));
-            ImGui::Text("cant switch sides but you");
+            ImGui::Text("can't switch sides but you");
             ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 360));
             ImGui::Text("can at any time turn on AI.");
             ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 380));
@@ -3350,11 +3572,9 @@ int main(int, char**)
             ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 400));
             ImGui::Text("to the end of the game.");
             ImGui::SetCursorPos(ImVec2(starterBoardPosX + 505, starterBoardPosY + 495));
-            ImGui::Text("Disclaimer: there is no");
+            ImGui::Text("Disclaimer: Pawn promotion is");
             ImGui::SetCursorPos(ImVec2(starterBoardPosX + 505, starterBoardPosY + 515));
-            ImGui::Text("En passant, castling and pawn");
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 505, starterBoardPosY + 535));
-            ImGui::Text("promotion is always to queen.");
+            ImGui::Text("always to the Queen.");
 
         if (isHumanWhite == true)
         {
@@ -3395,6 +3615,7 @@ int main(int, char**)
             {
                 int X = (mousePosition.x - 80) / 60;
                 int Y = (mousePosition.y - 100) / 60;
+                //std::cout << "Click: " << Y << "," << X << "\n";
 
                 //Piece Move for both colors
                 if (isChessPieceSelected == true && isChessSquareViableMove[Y][X] == true)
@@ -3403,85 +3624,228 @@ int main(int, char**)
                     chessBoard[selectedPieceY][selectedPieceX] = 0;
                     chessBoard[Y][X] = whatPieceToMove;
                     if (isGameStarted == false) { isGameStarted = true; }
-                    resetisChessSquareViableMove();
+                    //Rook move while castling
+                    if (whatPieceToMove == 100)
+                    {
+                        if (isHumanWhite == true)
+                        {
+                            if (isWhiteKingCastlingPossible == true && Y == 7 && X == 6)
+                            {
+                                chessBoard[7][5] = 50;
+                                chessBoard[7][7] = 0;
+                            }
+                            if (isWhiteQueenCastlingPossible == true && Y == 7 && X == 2)
+                            {
+                                chessBoard[7][3] = 50;
+                                chessBoard[7][0] = 0;
+                            }
+                        }
+                        else
+                        {
+                            if (isWhiteKingCastlingPossible == true && Y == 0 && X == 1)
+                            {
+                                chessBoard[0][2] = 50;
+                                chessBoard[0][0] = 0;
+                            }
+                            if (isWhiteQueenCastlingPossible == true && Y == 0 && X == 5)
+                            {
+                                chessBoard[0][4] = 50;
+                                chessBoard[0][7] = 0;
+                            }
+                        }
+                    }
+                    if (whatPieceToMove == 101)
+                    {
+                        if (isHumanWhite == true)
+                        {
+                            if (isBlackKingCastlingPossible == true && Y == 0 && X == 6)
+                            {
+                                chessBoard[0][5] = 51;
+                                chessBoard[0][7] = 0;
+                            }
+                            if (isBlackQueenCastlingPossible == true && Y == 0 && X == 2)
+                            {
+                                chessBoard[0][3] = 51;
+                                chessBoard[0][0] = 0;
+                            }
+                        }
+                        else
+                        {
+                            if (isBlackKingCastlingPossible == true && Y == 7 && X == 1)
+                            {
+                                chessBoard[7][2] = 51;
+                                chessBoard[7][0] = 0;
+                            }
+                            if (isBlackQueenCastlingPossible == true && Y == 7 && X == 5)
+                            {
+                                chessBoard[7][4] = 51;
+                                chessBoard[7][7] = 0;
+                            }
+                        }
+                    }
+
+                    //Remove possibility of castling
+                    switch (whatPieceToMove)
+                    {
+                    default:
+                        break;
+                    case 100:
+                        isWhiteKingCastlingPossible = false;
+                        isWhiteQueenCastlingPossible = false;
+                        break;
+                    case 101:
+                        isBlackKingCastlingPossible = false;
+                        isBlackQueenCastlingPossible = false;
+                        break;
+                    case 50:
+                        if (isHumanWhite == true)
+                        {
+                            if (selectedPieceX == 7) { isWhiteKingCastlingPossible = false;}
+                            if (selectedPieceX == 0) { isWhiteQueenCastlingPossible = false; }
+                        }
+                        if (isHumanWhite == false)
+                        {
+                            if (selectedPieceX == 0) { isWhiteKingCastlingPossible = false; }
+                            if (selectedPieceX == 7) { isWhiteQueenCastlingPossible = false; }
+                        }
+                        break;
+                    case 51:
+                        if (isHumanWhite == false)
+                        {
+                            if (selectedPieceX == 0) { isBlackKingCastlingPossible = false; }
+                            if (selectedPieceX == 7) { isBlackQueenCastlingPossible = false; }
+                        }
+                        if (isHumanWhite == true)
+                        {
+                            if (selectedPieceX == 7) { isBlackKingCastlingPossible = false; }
+                            if (selectedPieceX == 0) { isBlackQueenCastlingPossible = false; }
+                        }
+                        break;
+                    }
+
+                    //En Passant pawn capture
+                    if (whatPieceToMove == 10)
+                    {
+                        if (isHumanWhite == true)
+                        {
+                            if (isEnPassantForWhitePossible == true && Y == 2)
+                            {
+                                chessBoard[Y + 1][X] = 0;
+                            }
+                        }
+                        else
+                        {
+                            if (isEnPassantForWhitePossible == true && Y == 5)
+                            {
+                                chessBoard[Y - 1][X] = 0;
+                            }
+                        }
+                    }
+                    if (whatPieceToMove == 11)
+                    {
+                        if (isHumanWhite == true)
+                        {
+                            if (isEnPassantForBlackPossible == true && Y == 5)
+                            {
+                                chessBoard[Y - 1][X] = 0;
+                            }
+                        }
+                        else
+                        {
+                            if (isEnPassantForBlackPossible == true && Y == 2)
+                            {
+                                chessBoard[Y + 1][X] = 0;
+                            }
+                        }
+                    }
+
+                    //isEnPassantPossible
+                    if (whatPieceToMove == 10)
+                    {
+                        if (isHumanWhite == true)
+                        {
+                            if (selectedPieceY == 6 && Y == 4)
+                            {
+                                isEnPassantForBlackPossible = true;
+                                enPassantX = X;
+                            }
+                        }
+                        else
+                        {
+                            if (selectedPieceY == 1 && Y == 3)
+                            {
+                                isEnPassantForBlackPossible = true;
+                                enPassantX = X;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        isEnPassantForBlackPossible = false;
+                    }
+                    if (whatPieceToMove == 11)
+                    {
+                        if (isHumanWhite == true)
+                        {
+                            if (selectedPieceY == 1 && Y == 3)
+                            {
+                                isEnPassantForWhitePossible = true;
+                                enPassantX = X;
+                            }
+                        }
+                        else
+                        {
+                            if (selectedPieceY == 6 && Y == 4)
+                            {
+                                isEnPassantForWhitePossible = true;
+                                enPassantX = X;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        isEnPassantForWhitePossible = false;
+                    }
+
+
 
                     if (isWhitesTurn == true) { isWhitesTurn = false; }
                     else { isWhitesTurn = true; }
 
+                    resetisChessSquareViableMove();
                     updatePawnToQueenPromotion();
                     updateIsKingInCheck();
                     isGameEnded();
                 }
-                //
-                if (isAITurnedOn == false)
+
+                //Piece Deselection
+                if (isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
                 {
-                    //For White
-                    //Piece Deselection
-                    if (isWhitesTurn == true && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
-                    {
-                        isChessPieceSelected = false;
-                        resetisChessSquareViableMove();
-                    }
-                    //Piece Selection
-                    if (isWhitesTurn == true && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 0 || chessBoard[Y][X] % 10 == 2))
-                    {
-                        isChessPieceSelected = true;
-                        selectedPieceX = X;
-                        selectedPieceY = Y;
-                        updateViableMoves();
-                    }
-
-                    //For Black
-                    //Piece Deselection
-                    if (isWhitesTurn == false && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
-                    {
-                        isChessPieceSelected = false;
-                        resetisChessSquareViableMove();
-                    }
-                    //Piece Selection
-                    if (isWhitesTurn == false && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 1 || chessBoard[Y][X] % 10 == 3))
-                    {
-                        isChessPieceSelected = true;
-                        selectedPieceX = X;
-                        selectedPieceY = Y;
-                        updateViableMoves();
-
-                    }
+                    isChessPieceSelected = false;
+                    resetisChessSquareViableMove();
+                    //std::cout << "Deselection\n";
                 }
-                //
-                if (isAITurnedOn == true)
+
+                //Piece Selection
+                if (isChessPieceSelected == false)
                 {
-                    //For White
-                    //Piece Deselection
-                    if (isWhitesTurn == true && isHumanWhite == true && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
-                    {
-                        isChessPieceSelected = false;
-                        resetisChessSquareViableMove();
-                    }
-                    //Piece Selection
-                    if (isWhitesTurn == true && isHumanWhite == true && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 0 || chessBoard[Y][X] % 10 == 2))
+                    //White
+                    if (isWhitesTurn == true && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 0 || chessBoard[Y][X] % 10 == 2))
                     {
                         isChessPieceSelected = true;
                         selectedPieceX = X;
                         selectedPieceY = Y;
                         updateViableMoves();
+                        //std::cout << "White Selection\n";
                     }
-
-                    //For Black
-                    //Piece Deselection
-                    if (isWhitesTurn == false && isHumanWhite == false && isChessPieceSelected == true && isChessSquareViableMove[Y][X] == false)
-                    {
-                        isChessPieceSelected = false;
-                        resetisChessSquareViableMove();
-                    }
-                    //Piece Selection
-                    if (isWhitesTurn == false && isHumanWhite == false && isChessPieceSelected == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 1 || chessBoard[Y][X] % 10 == 3))
+                    //Black
+                    if (isWhitesTurn == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 1 || chessBoard[Y][X] % 10 == 3))
                     {
                         isChessPieceSelected = true;
                         selectedPieceX = X;
                         selectedPieceY = Y;
                         updateViableMoves();
-
+                        //std::cout << "Black Selection\n";
                     }
                 }
             }
