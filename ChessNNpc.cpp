@@ -4,7 +4,7 @@
 #include <d3d11.h>
 #include <tchar.h>
 #include <iostream>
-#include <wrl.h>
+//#include <wrl.h>
 
 #pragma comment(lib, "D3D11.lib")
 
@@ -85,8 +85,8 @@ bool isMoveHypothetical = false;
 // 0  0  0  0   0  0  0  0
 //10 10 10 10  10 10 10 10
 //50 30 32 90 100 32 30 50
-// 
 
+//Chess app functions
 static void boardBeginWhite()
 {
     chessBoard[0][0] = 51 , chessBoard[0][1] = 31, chessBoard[0][2] = 33, chessBoard[0][3] = 91;
@@ -418,23 +418,23 @@ static void updateDangerSquares()
                     case 10:
                         if (isHumanWhite == true)
                         {
-                            if (w != 0)
+                            if (w != 0 && h != 0)
                             {
                                 dangerSquaresForBlackKing[h - 1][w - 1] = true;
                             }
-                            if (w != 7)
+                            if (w != 7 && h != 0)
                             {
                                 dangerSquaresForBlackKing[h - 1][w + 1] = true;
                             }
                         }
                         else
                         {
-                            if (w != 0)
+                            if (w != 0 && h != 7)
                             {
                                 dangerSquaresForBlackKing[h + 1][w - 1] = true;
                             }
 
-                            if (w != 7) 
+                            if (w != 7 && h != 7)
                             {                         
                                 dangerSquaresForBlackKing[h + 1][w + 1] = true;
                             }
@@ -852,21 +852,21 @@ static void updateDangerSquares()
                     case 11:
                         if (isHumanWhite == false)
                         {
-                            if (w != 0)
+                            if (w != 0 && h != 0)
                             {
                                 dangerSquaresForWhiteKing[h - 1][w - 1] = true;
                             }
-                            if (w != 7) {
+                            if (w != 7 && h != 0) {
                                 dangerSquaresForWhiteKing[h - 1][w + 1] = true;
                             }
                         }
                         else
                         {
-                            if (w != 0)
+                            if (w != 0 && h != 7)
                             {
                                 dangerSquaresForWhiteKing[h + 1][w - 1] = true;
                             }
-                            if (w != 7)
+                            if (w != 7 && h != 7)
                             {
                                 dangerSquaresForWhiteKing[h + 1][w + 1] = true;
                             }
@@ -3253,6 +3253,1161 @@ bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_sr
     return true;
 }
 
+//Neural network functions and variables
+const int neuronsInLayer0 = 387;
+const int neuronsInLayer1 = 1024;
+const int neuronsInLayer2 = 4096;
+const int neuronsInLayer3 = 4096;
+const int neuronsInLayer4 = 4096;
+const int neuronsInLayer5 = 4096;
+const int neuronsInLayer6 = 2048;
+const int neuronsInLayer7 = 1024;
+const int neuronsInLayer8 = 512;
+const int neuronsInLayer9 = 128;
+
+int weightsLayer1[neuronsInLayer0][neuronsInLayer1];
+int weightsLayer2[neuronsInLayer1][neuronsInLayer2];
+int weightsLayer3[neuronsInLayer2][neuronsInLayer3];
+int weightsLayer4[neuronsInLayer3][neuronsInLayer4];
+int weightsLayer5[neuronsInLayer4][neuronsInLayer5];
+int weightsLayer6[neuronsInLayer5][neuronsInLayer6];
+int weightsLayer7[neuronsInLayer6][neuronsInLayer7];
+int weightsLayer8[neuronsInLayer7][neuronsInLayer8];
+int weightsLayer9[neuronsInLayer8][neuronsInLayer9];
+
+int neuronsLayer0[neuronsInLayer0]; //input
+int neuronsLayer1[neuronsInLayer1];
+int neuronsLayer2[neuronsInLayer2];
+int neuronsLayer3[neuronsInLayer3];
+int neuronsLayer4[neuronsInLayer4];
+int neuronsLayer5[neuronsInLayer5];
+int neuronsLayer6[neuronsInLayer6];
+int neuronsLayer7[neuronsInLayer7];
+int neuronsLayer8[neuronsInLayer8];
+int neuronsLayer9[neuronsInLayer9]; //output
+
+int biasesLayer1[neuronsInLayer1];
+int biasesLayer2[neuronsInLayer2];
+int biasesLayer3[neuronsInLayer3];
+int biasesLayer4[neuronsInLayer4];
+int biasesLayer5[neuronsInLayer5];
+int biasesLayer6[neuronsInLayer6];
+int biasesLayer7[neuronsInLayer7];
+int biasesLayer8[neuronsInLayer8];
+int biasesLayer9[neuronsInLayer9];
+
+#include <fstream>
+#include <random>
+#include <string>
+
+static void nnLoad()
+{
+    std::ifstream w1("NeuralNetwork/weightsLayer1.txt");
+    std::ifstream w2("NeuralNetwork/weightsLayer2.txt");
+    std::ifstream w3("NeuralNetwork/weightsLayer3.txt");
+    std::ifstream w4("NeuralNetwork/weightsLayer4.txt");
+    std::ifstream w5("NeuralNetwork/weightsLayer5.txt");
+    std::ifstream w6("NeuralNetwork/weightsLayer6.txt");
+    std::ifstream w7("NeuralNetwork/weightsLayer7.txt");
+    std::ifstream w8("NeuralNetwork/weightsLayer8.txt");
+    std::ifstream w9("NeuralNetwork/weightsLayer9.txt");
+
+    std::ifstream b1("NeuralNetwork/biasesLayer1.txt");
+    std::ifstream b2("NeuralNetwork/biasesLayer2.txt");
+    std::ifstream b3("NeuralNetwork/biasesLayer3.txt");
+    std::ifstream b4("NeuralNetwork/biasesLayer4.txt");
+    std::ifstream b5("NeuralNetwork/biasesLayer5.txt");
+    std::ifstream b6("NeuralNetwork/biasesLayer6.txt");
+    std::ifstream b7("NeuralNetwork/biasesLayer7.txt");
+    std::ifstream b8("NeuralNetwork/biasesLayer8.txt");
+    std::ifstream b9("NeuralNetwork/biasesLayer9.txt");
+
+    for (int i = 0; i < neuronsInLayer0; i++)
+    {
+        for (int j = 0; j < neuronsInLayer1; j++)
+        {
+            w1 >> weightsLayer1[i][j];
+            weightsLayer1[i][j] -= 127;
+        }
+    }
+    w1.close();
+    for (int i = 0; i < neuronsInLayer1; i++)
+    {
+        for (int j = 0; j < neuronsInLayer2; j++)
+        {
+            w2 >> weightsLayer2[i][j];
+            weightsLayer2[i][j] -= 127;
+        }
+    }
+    w2.close();
+    for (int i = 0; i < neuronsInLayer2; i++)
+    {
+        for (int j = 0; j < neuronsInLayer3; j++)
+        {
+            w3 >> weightsLayer3[i][j];
+            weightsLayer3[i][j] -= 127;
+        }
+    }
+    w3.close();
+    for (int i = 0; i < neuronsInLayer3; i++)
+    {
+        for (int j = 0; j < neuronsInLayer4; j++)
+        {
+            w4 >> weightsLayer4[i][j];
+            weightsLayer4[i][j] -= 127;
+        }
+    }
+    w4.close();
+    for (int i = 0; i < neuronsInLayer4; i++)
+    {
+        for (int j = 0; j < neuronsInLayer5; j++)
+        {
+            w5 >> weightsLayer5[i][j];
+            weightsLayer5[i][j] -= 127;
+        }
+    }
+    w5.close();
+    for (int i = 0; i < neuronsInLayer5; i++)
+    {
+        for (int j = 0; j < neuronsInLayer6; j++)
+        {
+            w6 >> weightsLayer6[i][j];
+            weightsLayer6[i][j] -= 127;
+        }
+    }
+    w6.close();
+    for (int i = 0; i < neuronsInLayer6; i++)
+    {
+        for (int j = 0; j < neuronsInLayer7; j++)
+        {
+            w7 >> weightsLayer7[i][j];
+            weightsLayer7[i][j] -= 127;
+        }
+    }
+    w7.close();
+    for (int i = 0; i < neuronsInLayer7; i++)
+    {
+        for (int j = 0; j < neuronsInLayer8; j++)
+        {
+            w8 >> weightsLayer8[i][j];
+            weightsLayer8[i][j] -= 127;
+        }
+    }
+    w8.close();
+    for (int i = 0; i < neuronsInLayer8; i++)
+    {
+        for (int j = 0; j < neuronsInLayer9; j++)
+        {
+            w9 >> weightsLayer9[i][j];
+            weightsLayer9[i][j] -= 127;
+        }
+    }
+    w9.close();
+
+
+    for (int i = 0; i < neuronsInLayer1; i++)
+    {
+        b1 >> biasesLayer1[i];
+        biasesLayer1[i] -= 127;
+    }
+    b1.close();
+    for (int i = 0; i < neuronsInLayer2; i++)
+    {
+        b2 >> biasesLayer2[i];
+        biasesLayer2[i] -= 127;
+    }
+    b2.close();
+    for (int i = 0; i < neuronsInLayer3; i++)
+    {
+        b3 >> biasesLayer3[i];
+        biasesLayer3[i] -= 127;
+    }
+    b3.close();
+    for (int i = 0; i < neuronsInLayer4; i++)
+    {
+        b4 >> biasesLayer4[i];
+        biasesLayer4[i] -= 127;
+    }
+    b4.close();
+    for (int i = 0; i < neuronsInLayer5; i++)
+    {
+        b5 >> biasesLayer5[i];
+        biasesLayer5[i] -= 127;
+    }
+    b5.close();
+    for (int i = 0; i < neuronsInLayer6; i++)
+    {
+        b6 >> biasesLayer6[i];
+        biasesLayer6[i] -= 127;
+    }
+    b6.close();
+    for (int i = 0; i < neuronsInLayer7; i++)
+    {
+        b7 >> biasesLayer7[i];
+        biasesLayer7[i] -= 127;
+    }
+    b7.close();
+    for (int i = 0; i < neuronsInLayer8; i++)
+    {
+        b8 >> biasesLayer8[i];
+        biasesLayer8[i] -= 127;
+    }
+    b8.close();
+    for (int i = 0; i < neuronsInLayer9; i++)
+    {
+        b9 >> biasesLayer9[i];
+        biasesLayer9[i] -= 127;
+    }
+    b9.close();
+}
+
+static void nnWriteWithRandomValues()
+{
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> distr(0, 254);
+
+    std::ofstream w1("NeuralNetwork/weightsLayer1.txt");
+    std::ofstream w2("NeuralNetwork/weightsLayer2.txt");
+    std::ofstream w3("NeuralNetwork/weightsLayer3.txt");
+    std::ofstream w4("NeuralNetwork/weightsLayer4.txt");
+    std::ofstream w5("NeuralNetwork/weightsLayer5.txt");
+    std::ofstream w6("NeuralNetwork/weightsLayer6.txt");
+    std::ofstream w7("NeuralNetwork/weightsLayer7.txt");
+    std::ofstream w8("NeuralNetwork/weightsLayer8.txt");
+    std::ofstream w9("NeuralNetwork/weightsLayer9.txt");
+
+    std::ofstream b1("NeuralNetwork/biasesLayer1.txt");
+    std::ofstream b2("NeuralNetwork/biasesLayer2.txt");
+    std::ofstream b3("NeuralNetwork/biasesLayer3.txt");
+    std::ofstream b4("NeuralNetwork/biasesLayer4.txt");
+    std::ofstream b5("NeuralNetwork/biasesLayer5.txt");
+    std::ofstream b6("NeuralNetwork/biasesLayer6.txt");
+    std::ofstream b7("NeuralNetwork/biasesLayer7.txt");
+    std::ofstream b8("NeuralNetwork/biasesLayer8.txt");
+    std::ofstream b9("NeuralNetwork/biasesLayer9.txt");
+
+    for (int i = 0; i < neuronsInLayer0; i++)
+    {
+        for (int j = 0; j < neuronsInLayer1; j++)
+        {
+            w1 << distr(gen) - 127 << " ";
+        }
+        w1 << std::endl;
+    }
+    w1.close();
+    for (int i = 0; i < neuronsInLayer1; i++)
+    {
+        for (int j = 0; j < neuronsInLayer2; j++)
+        {
+            w2 << distr(gen) - 127 << " ";
+        }
+        w2 << std::endl;
+    }
+    w2.close();
+    for (int i = 0; i < neuronsInLayer2; i++)
+    {
+        for (int j = 0; j < neuronsInLayer3; j++)
+        {
+            w3 << distr(gen) - 127 << " ";
+        }
+        w3 << std::endl;
+    }
+    w3.close();
+    for (int i = 0; i < neuronsInLayer3; i++)
+    {
+        for (int j = 0; j < neuronsInLayer4; j++)
+        {
+            w4 << distr(gen) - 127 << " ";
+        }
+        w4 << std::endl;
+    }
+    w4.close();
+    for (int i = 0; i < neuronsInLayer4; i++)
+    {
+        for (int j = 0; j < neuronsInLayer5; j++)
+        {
+            w5 << distr(gen) - 127 << " ";
+        }
+        w5 << std::endl;
+    }
+    w5.close();
+    for (int i = 0; i < neuronsInLayer5; i++)
+    {
+        for (int j = 0; j < neuronsInLayer6; j++)
+        {
+            w6 << distr(gen) - 127 << " ";
+        }
+        w6 << std::endl;
+    }
+    w6.close();
+    for (int i = 0; i < neuronsInLayer6; i++)
+    {
+        for (int j = 0; j < neuronsInLayer7; j++)
+        {
+            w7 << distr(gen) - 127 << " ";
+        }
+        w7 << std::endl;
+    }
+    w7.close();
+    for (int i = 0; i < neuronsInLayer7; i++)
+    {
+        for (int j = 0; j < neuronsInLayer8; j++)
+        {
+            w8 << distr(gen) - 127 << " ";
+        }
+        w8 << std::endl;
+    }
+    w8.close();
+    for (int i = 0; i < neuronsInLayer8; i++)
+    {
+        for (int j = 0; j < neuronsInLayer9; j++)
+        {
+            w9 << distr(gen) - 127 << " ";
+        }
+        w9 << std::endl;
+    }
+    w9.close();
+
+
+    for (int i = 0; i < neuronsInLayer1; i++)
+    {
+        b1 << distr(gen) - 127 << " ";
+    }
+    b1.close();
+    for (int i = 0; i < neuronsInLayer2; i++)
+    {
+        b2 << distr(gen) - 127 << " ";
+    }
+    b2.close();
+    for (int i = 0; i < neuronsInLayer3; i++)
+    {
+        b3 << distr(gen) - 127 << " ";
+    }
+    b3.close();
+    for (int i = 0; i < neuronsInLayer4; i++)
+    {
+        b4 << distr(gen) - 127 << " ";
+    }
+    b4.close();
+    for (int i = 0; i < neuronsInLayer5; i++)
+    {
+        b5 << distr(gen) - 127 << " ";
+    }
+    b5.close();
+    for (int i = 0; i < neuronsInLayer6; i++)
+    {
+        b6 << distr(gen) - 127 << " ";
+    }
+    b6.close();
+    for (int i = 0; i < neuronsInLayer7; i++)
+    {
+        b7 << distr(gen) - 127 << " ";
+    }
+    b7.close();
+    for (int i = 0; i < neuronsInLayer8; i++)
+    {
+        b8 << distr(gen) - 127 << " ";
+    }
+    b8.close();
+    for (int i = 0; i < neuronsInLayer9; i++)
+    {
+        b9 << distr(gen) - 127 << " ";
+    }
+    b9.close();
+}
+
+static void nnWrite()
+{
+    std::ofstream w1("NeuralNetwork/weightsLayer1.txt");
+    std::ofstream w2("NeuralNetwork/weightsLayer2.txt");
+    std::ofstream w3("NeuralNetwork/weightsLayer3.txt");
+    std::ofstream w4("NeuralNetwork/weightsLayer4.txt");
+    std::ofstream w5("NeuralNetwork/weightsLayer5.txt");
+    std::ofstream w6("NeuralNetwork/weightsLayer6.txt");
+    std::ofstream w7("NeuralNetwork/weightsLayer7.txt");
+    std::ofstream w8("NeuralNetwork/weightsLayer8.txt");
+    std::ofstream w9("NeuralNetwork/weightsLayer9.txt");
+
+    std::ofstream b1("NeuralNetwork/biasesLayer1.txt");
+    std::ofstream b2("NeuralNetwork/biasesLayer2.txt");
+    std::ofstream b3("NeuralNetwork/biasesLayer3.txt");
+    std::ofstream b4("NeuralNetwork/biasesLayer4.txt");
+    std::ofstream b5("NeuralNetwork/biasesLayer5.txt");
+    std::ofstream b6("NeuralNetwork/biasesLayer6.txt");
+    std::ofstream b7("NeuralNetwork/biasesLayer7.txt");
+    std::ofstream b8("NeuralNetwork/biasesLayer8.txt");
+    std::ofstream b9("NeuralNetwork/biasesLayer9.txt");
+
+    for (int i = 0; i < neuronsInLayer0; i++)
+    {
+        for (int j = 0; j < neuronsInLayer1; j++)
+        {
+            w1 << weightsLayer1[i][j] + 127 << " ";
+        }
+        w1 << std::endl;
+    }
+    w1.close();
+    for (int i = 0; i < neuronsInLayer1; i++)
+    {
+        for (int j = 0; j < neuronsInLayer2; j++)
+        {
+            w2 << weightsLayer2[i][j] + 127 << " ";
+        }
+        w2 << std::endl;
+    }
+    w2.close();
+    for (int i = 0; i < neuronsInLayer2; i++)
+    {
+        for (int j = 0; j < neuronsInLayer3; j++)
+        {
+            w3 << weightsLayer3[i][j] + 127 << " ";
+        }
+        w3 << std::endl;
+    }
+    w3.close();
+    for (int i = 0; i < neuronsInLayer3; i++)
+    {
+        for (int j = 0; j < neuronsInLayer4; j++)
+        {
+            w4 << weightsLayer4[i][j] + 127 << " ";
+        }
+        w4 << std::endl;
+    }
+    w4.close();
+    for (int i = 0; i < neuronsInLayer4; i++)
+    {
+        for (int j = 0; j < neuronsInLayer5; j++)
+        {
+            w5 << weightsLayer5[i][j] + 127 << " ";
+        }
+        w5 << std::endl;
+    }
+    w5.close();
+    for (int i = 0; i < neuronsInLayer5; i++)
+    {
+        for (int j = 0; j < neuronsInLayer6; j++)
+        {
+            w6 << weightsLayer6[i][j] + 127 << " ";
+        }
+        w6 << std::endl;
+    }
+    w6.close();
+    for (int i = 0; i < neuronsInLayer6; i++)
+    {
+        for (int j = 0; j < neuronsInLayer7; j++)
+        {
+            w7 << weightsLayer7[i][j] + 127 << " ";
+        }
+        w7 << std::endl;
+    }
+    w7.close();
+    for (int i = 0; i < neuronsInLayer7; i++)
+    {
+        for (int j = 0; j < neuronsInLayer8; j++)
+        {
+            w8 << weightsLayer8[i][j] + 127 << " ";
+        }
+        w8 << std::endl;
+    }
+    w8.close();
+    for (int i = 0; i < neuronsInLayer8; i++)
+    {
+        for (int j = 0; j < neuronsInLayer9; j++)
+        {
+            w9 << weightsLayer9[i][j] + 127 << " ";
+        }
+        w9 << std::endl;
+    }
+    w9.close();
+
+
+    for (int i = 0; i < neuronsInLayer1; i++)
+    {
+        b1 << biasesLayer1[i] + 127 << " ";
+    }
+    b1.close();
+    for (int i = 0; i < neuronsInLayer2; i++)
+    {
+        b2 << biasesLayer2[i] + 127 << " ";
+    }
+    b2.close();
+    for (int i = 0; i < neuronsInLayer3; i++)
+    {
+        b3 << biasesLayer3[i] + 127 << " ";
+    }
+    b3.close();
+    for (int i = 0; i < neuronsInLayer4; i++)
+    {
+        b4 << biasesLayer4[i] + 127 << " ";
+    }
+    b4.close();
+    for (int i = 0; i < neuronsInLayer5; i++)
+    {
+        b5 << biasesLayer5[i] + 127 << " ";
+    }
+    b5.close();
+    for (int i = 0; i < neuronsInLayer6; i++)
+    {
+        b6 << biasesLayer6[i] + 127 << " ";
+    }
+    b6.close();
+    for (int i = 0; i < neuronsInLayer7; i++)
+    {
+        b7 << biasesLayer7[i] + 127 << " ";
+    }
+    b7.close();
+    for (int i = 0; i < neuronsInLayer8; i++)
+    {
+        b8 << biasesLayer8[i] + 127 << " ";
+    }
+    b8.close();
+    for (int i = 0; i < neuronsInLayer9; i++)
+    {
+        b9 << biasesLayer9[i] + 127 << " ";
+    }
+    b9.close();
+}
+
+static void nnBoardToInput()
+{
+    for (int i = 0; i < neuronsInLayer0; i++)
+    {
+        neuronsLayer0[i] = 0;
+    }
+    //387 = 64 + 64 + 64 + 64 + 64 + 64 + 3
+    //      P    N    B    R    Q    K    castle, castle, -1 no enpassant, 0-7 collumn in which pawn moved
+    //bot pieces = +; opponent pieces = -
+    for (int h = 0; h < 8; h++)
+    {
+        for (int w = 0; w < 8; w++)
+        {
+            switch (chessBoard[h][w])
+            {
+            case 10:
+                if (isHumanWhite == true)
+                {
+                    neuronsLayer0[(h * 8) + w] = -1;
+                }
+                else
+                {
+                    neuronsLayer0[(h * 8) + w] = 1;
+                }
+                break;
+            case 11:
+                if (isHumanWhite == false)
+                {
+                    neuronsLayer0[(h * 8) + w] = -1;
+                }
+                else
+                {
+                    neuronsLayer0[(h * 8) + w] = 1;
+                }
+                break;
+            case 30:
+                if (isHumanWhite == true)
+                {
+                    neuronsLayer0[(h * 8) + w + 64] = -1;
+                }
+                else
+                {
+                    neuronsLayer0[(h * 8) + w + 64] = 1;
+                }
+                break;
+            case 31: 
+                if (isHumanWhite == false)
+                {
+                    neuronsLayer0[(h * 8) + w + 64] = -1;
+                }
+                else
+                {
+                    neuronsLayer0[(h * 8) + w + 64] = 1;
+                }
+                break;
+            case 32: 
+                if (isHumanWhite == true)
+                {
+                    neuronsLayer0[(h * 8) + w + 128] = -1;
+                }
+                else
+                {
+                    neuronsLayer0[(h * 8) + w + 128] = 1;
+                }
+                break;
+            case 33: 
+                if (isHumanWhite == false)
+                {
+                    neuronsLayer0[(h * 8) + w + 128] = -1;
+                }
+                else
+                {
+                    neuronsLayer0[(h * 8) + w + 128] = 1;
+                }
+                break;
+            case 50:
+                if (isHumanWhite == true)
+                {
+                    neuronsLayer0[(h * 8) + w + 192] = -1;
+                }
+                else
+                {
+                    neuronsLayer0[(h * 8) + w + 192] = 1;
+                }
+                break;
+            case 51:
+                if (isHumanWhite == false)
+                {
+                    neuronsLayer0[(h * 8) + w + 192] = -1;
+                }
+                else
+                {
+                    neuronsLayer0[(h * 8) + w + 192] = 1;
+                }
+                break;
+            case 90:
+                if (isHumanWhite == true)
+                {
+                    neuronsLayer0[(h * 8) + w + 256] = -1;
+                }
+                else
+                {
+                    neuronsLayer0[(h * 8) + w + 256] = 1;
+                }
+                break;
+            case 91:
+                if (isHumanWhite == false)
+                {
+                    neuronsLayer0[(h * 8) + w + 256] = -1;
+                }
+                else
+                {
+                    neuronsLayer0[(h * 8) + w + 256] = 1;
+                }
+                break;
+            case 100:
+                if (isHumanWhite == true)
+                {
+                    neuronsLayer0[(h * 8) + w + 320] = -1;
+                }
+                else
+                {
+                    neuronsLayer0[(h * 8) + w + 320] = 1;
+                }
+                break;
+            case 101:
+                if (isHumanWhite == false)
+                {
+                    neuronsLayer0[(h * 8) + w + 320] = -1;
+                }
+                else
+                {
+                    neuronsLayer0[(h * 8) + w + 320] = 1;
+                }
+                break;
+            }
+
+            if (isHumanWhite == true)
+            {
+                if (isBlackKingCastlingPossible == true)
+                {
+                    neuronsLayer0[neuronsInLayer0 - 3] = 10;
+                }
+                if (isBlackQueenCastlingPossible == true)
+                {
+                    neuronsLayer0[neuronsInLayer0 - 2] = 10;
+                }
+                if (isEnPassantForBlackPossible == true)
+                {
+                    neuronsLayer0[neuronsInLayer0 - 1] = enPassantX;
+                }
+            }
+            else
+            {
+                if (isWhiteKingCastlingPossible == true)
+                {
+                    neuronsLayer0[neuronsInLayer0 - 3] = 10;
+                }
+                if (isWhiteQueenCastlingPossible == true)
+                {
+                    neuronsLayer0[neuronsInLayer0 - 2] = 10;
+                }
+                if (isEnPassantForWhitePossible == true)
+                {
+                    neuronsLayer0[neuronsInLayer0 - 1] = enPassantX;
+                }
+            }
+        }
+    }
+}
+
+static void nnThink()
+{
+
+    //Calculate 1st layer
+    for (int i = 0; i < neuronsInLayer1; i++)
+    {
+        int temporaryNeuronValue = 0;
+        for (int j = 0; j < neuronsInLayer0; j++)
+        {
+            temporaryNeuronValue = (neuronsLayer0[j] * weightsLayer1[j][i]) + temporaryNeuronValue;
+        }
+        temporaryNeuronValue -= biasesLayer1[i];
+        temporaryNeuronValue /= neuronsInLayer0;
+        neuronsLayer1[i] = temporaryNeuronValue;
+    }
+    //Calculate 2nd layer
+    for (int i = 0; i < neuronsInLayer2; i++)
+    {
+        int temporaryNeuronValue = 0;
+        for (int j = 0; j < neuronsInLayer1; j++)
+        {
+            temporaryNeuronValue = (neuronsLayer1[j] * weightsLayer2[j][i]) + temporaryNeuronValue;
+        }
+        temporaryNeuronValue -= biasesLayer2[i];
+        temporaryNeuronValue /= (neuronsInLayer1 * 127);
+        neuronsLayer2[i] = temporaryNeuronValue;
+    }
+    //Calculate 3rd layer
+    for (int i = 0; i < neuronsInLayer3; i++)
+    {
+        int temporaryNeuronValue = 0;
+        for (int j = 0; j < neuronsInLayer2; j++)
+        {
+            temporaryNeuronValue = (neuronsLayer2[j] * weightsLayer3[j][i]) + temporaryNeuronValue;
+        }
+        temporaryNeuronValue -= biasesLayer3[i];
+        temporaryNeuronValue /= (neuronsInLayer2 * 127);
+        neuronsLayer3[i] = temporaryNeuronValue;
+    }
+    //Calculate 4th layer
+    for (int i = 0; i < neuronsInLayer4; i++)
+    {
+        int temporaryNeuronValue = 0;
+        for (int j = 0; j < neuronsInLayer3; j++)
+        {
+            temporaryNeuronValue = (neuronsLayer3[j] * weightsLayer4[j][i]) + temporaryNeuronValue;
+        }
+        temporaryNeuronValue -= biasesLayer4[i];
+        temporaryNeuronValue /= (neuronsInLayer3 * 127);
+        neuronsLayer4[i] = temporaryNeuronValue;
+    }
+    //Calculate 5th layer
+    for (int i = 0; i < neuronsInLayer5; i++)
+    {
+        int temporaryNeuronValue = 0;
+        for (int j = 0; j < neuronsInLayer4; j++)
+        {
+            temporaryNeuronValue = (neuronsLayer4[j] * weightsLayer5[j][i]) + temporaryNeuronValue;
+        }
+        temporaryNeuronValue -= biasesLayer5[i];
+        temporaryNeuronValue /= (neuronsInLayer4 * 127);
+        neuronsLayer5[i] = temporaryNeuronValue;
+    }
+    //Calculate 6th layer
+    for (int i = 0; i < neuronsInLayer6; i++)
+    {
+        int temporaryNeuronValue = 0;
+        for (int j = 0; j < neuronsInLayer5; j++)
+        {
+            temporaryNeuronValue = (neuronsLayer5[j] * weightsLayer6[j][i]) + temporaryNeuronValue;
+        }
+        temporaryNeuronValue -= biasesLayer6[i];
+        temporaryNeuronValue /= (neuronsInLayer5 * 127);
+        neuronsLayer6[i] = temporaryNeuronValue;
+    }
+    //Calculate 7th layer
+    for (int i = 0; i < neuronsInLayer7; i++)
+    {
+        int temporaryNeuronValue = 0;
+        for (int j = 0; j < neuronsInLayer6; j++)
+        {
+            temporaryNeuronValue = (neuronsLayer6[j] * weightsLayer7[j][i]) + temporaryNeuronValue;
+        }
+        temporaryNeuronValue -= biasesLayer7[i];
+        temporaryNeuronValue /= (neuronsInLayer6 * 127);
+        neuronsLayer7[i] = temporaryNeuronValue;
+    }
+    //Calculate 8th layer
+    for (int i = 0; i < neuronsInLayer8; i++)
+    {
+        int temporaryNeuronValue = 0;
+        for (int j = 0; j < neuronsInLayer7; j++)
+        {
+            temporaryNeuronValue = (neuronsLayer7[j] * weightsLayer8[j][i]) + temporaryNeuronValue;
+        }
+        temporaryNeuronValue -= biasesLayer8[i];
+        temporaryNeuronValue /= (neuronsInLayer7 * 127);
+        neuronsLayer8[i] = temporaryNeuronValue;      
+    }
+    //Calculate 9th layer
+    for (int i = 0; i < neuronsInLayer9; i++)
+    {
+        int temporaryNeuronValue = 0;
+        for (int j = 0; j < neuronsInLayer8; j++)
+        {
+            temporaryNeuronValue = (neuronsLayer8[j] * weightsLayer9[j][i]) + temporaryNeuronValue;
+        }
+        temporaryNeuronValue -= biasesLayer9[i];
+        temporaryNeuronValue /= (neuronsInLayer8 * 127);
+        neuronsLayer9[i] = temporaryNeuronValue;
+    }
+}
+
+static void nnWhatMoveToPlay()
+{
+    //Delete OutputFrom which is empty square or opponnent square
+    if (isHumanWhite == true)
+    {
+        for (int h = 0; h < 8; h++)
+        {
+            for (int w = 0; w < 8; w++)
+            {
+                if (chessBoard[h][w] == 0 || chessBoard[h][w] % 10 == 0 || chessBoard[h][w] % 10 == 2)
+                {
+                    neuronsLayer9[h * 8 + w] = -256;
+                }
+            }
+        }
+    }
+    else
+    {
+        for (int h = 0; h < 8; h++)
+        {
+            for (int w = 0; w < 8; w++)
+            {
+                if (chessBoard[h][w] == 0 || chessBoard[h][w] % 10 == 1 || chessBoard[h][w] % 10 == 3)
+                {
+                    neuronsLayer9[h * 8 + w] = -256;
+                }
+            }
+        }
+    }
+
+    //Delete non viable moves
+    if (isHumanWhite == true)
+    {
+        for (int h = 0; h < 8; h++)
+        {
+            for (int w = 0; w < 8; w++)
+            {
+                if (chessBoard[h][w] != 0 && (chessBoard[h][w] % 10 == 1 || chessBoard[h][w] % 10 == 3))
+                {
+                    isChessPieceSelected = true;
+                    selectedPieceX = w;
+                    selectedPieceY = h;
+                    updateViableMoves();
+                }
+            }
+        }
+        for (int h = 0; h < 8; h++)
+        {
+            for (int w = 0; w < 8; w++)
+            {
+                if (isChessSquareViableMove[h][w] == false)
+                {
+                    neuronsLayer9[h * 8 + w + 64] = -256;
+                }
+            }
+        }
+        resetisChessSquareViableMove();
+    }
+    else
+    {
+        for (int h = 0; h < 8; h++)
+        {
+            for (int w = 0; w < 8; w++)
+            {
+                if (chessBoard[h][w] != 0 && (chessBoard[h][w] % 10 == 0 || chessBoard[h][w] % 10 == 2))
+                {
+                    isChessPieceSelected = true;
+                    selectedPieceX = w;
+                    selectedPieceY = h;
+                    updateViableMoves();
+                }
+            }
+        }
+        for (int h = 0; h < 8; h++)
+        {
+            for (int w = 0; w < 8; w++)
+            {
+                if (isChessSquareViableMove[h][w] == false)
+                {
+                    neuronsLayer9[h * 8 + w + 64] = -256;
+                }
+            }
+        }
+        resetisChessSquareViableMove();
+    }
+
+    bool doesThisPieceHaveMoves = false;
+
+    int valueFrom = -128;
+    int placeFrom = 0;
+
+    while (doesThisPieceHaveMoves == false)
+    {
+        valueFrom = -128;
+        placeFrom = 0;
+        for (int i = 0; i < 64; i++)
+        {
+            if (neuronsLayer9[i] > valueFrom)
+            {
+                valueFrom = neuronsLayer9[i];
+                placeFrom = i;
+            }
+        }
+        selectedPieceX = placeFrom % 8;
+        placeFrom -= selectedPieceX;
+        selectedPieceY = placeFrom / 8;
+        isChessPieceSelected = true;
+        updateViableMoves();
+
+        for (int h = 0; h < 8; h++)
+        {
+            for (int w = 0; w < 8; w++)
+            {
+                if (isChessSquareViableMove[h][w] == true)
+                {
+                    doesThisPieceHaveMoves = true;
+                }
+            }
+        }
+        if (doesThisPieceHaveMoves == false)
+        {
+            neuronsLayer9[selectedPieceY * 8 + selectedPieceX] = -256;
+            resetisChessSquareViableMove();
+        }
+    }
+    int toX = 0;
+    int toY = 0;
+    int valueTo = -128;
+    int placeTo = 0;
+    for (int i = 0; i < 64; i++)
+    {
+        if (neuronsLayer9[i+64] > valueTo)
+        {
+            valueTo = neuronsLayer9[i+64];
+            placeTo = i;
+        }
+    }
+    toX = placeTo % 8;
+    placeTo -= toX;
+    toY = placeTo / 8;
+    while (isChessSquareViableMove[toY][toX] == false)
+    {
+        neuronsLayer9[toY * 8 + toX + 64] = -256;
+        valueTo = -128;
+        placeTo = 0;
+        for (int i = 0; i < 64; i++)
+        {
+            if (neuronsLayer9[i + 64] > valueTo)
+            {
+                valueTo = neuronsLayer9[i + 64];
+                placeTo = i;
+            }
+        }
+        toX = placeTo % 8;
+        placeTo -= toX;
+        toY = placeTo / 8;
+    }
+    //Moving piece
+    int whatPieceToMove = chessBoard[selectedPieceY][selectedPieceX];
+    chessBoard[selectedPieceY][selectedPieceX] = 0;
+    chessBoard[toY][toX] = whatPieceToMove;
+    if (isGameStarted == false) { isGameStarted = true; }
+
+    //Rook move while castling
+    if (whatPieceToMove == 100)
+    {
+        if (isHumanWhite == true)
+        {
+            if (isWhiteKingCastlingPossible == true && toY == 7 && toX == 6)
+            {
+                chessBoard[7][5] = 50;
+                chessBoard[7][7] = 0;
+            }
+            if (isWhiteQueenCastlingPossible == true && toY == 7 && toX == 2)
+            {
+                chessBoard[7][3] = 50;
+                chessBoard[7][0] = 0;
+            }
+        }
+        else
+        {
+            if (isWhiteKingCastlingPossible == true && toY == 0 && toX == 1)
+            {
+                chessBoard[0][2] = 50;
+                chessBoard[0][0] = 0;
+            }
+            if (isWhiteQueenCastlingPossible == true && toY == 0 && toX == 5)
+            {
+                chessBoard[0][4] = 50;
+                chessBoard[0][7] = 0;
+            }
+        }
+    }
+    if (whatPieceToMove == 101)
+    {
+        if (isHumanWhite == true)
+        {
+            if (isBlackKingCastlingPossible == true && toY == 0 && toX == 6)
+            {
+                chessBoard[0][5] = 51;
+                chessBoard[0][7] = 0;
+            }
+            if (isBlackQueenCastlingPossible == true && toY == 0 && toX == 2)
+            {
+                chessBoard[0][3] = 51;
+                chessBoard[0][0] = 0;
+            }
+        }
+        else
+        {
+            if (isBlackKingCastlingPossible == true && toY == 7 && toX == 1)
+            {
+                chessBoard[7][2] = 51;
+                chessBoard[7][0] = 0;
+            }
+            if (isBlackQueenCastlingPossible == true && toY == 7 && toX == 5)
+            {
+                chessBoard[7][4] = 51;
+                chessBoard[7][7] = 0;
+            }
+        }
+    }
+
+    //Remove possibility of castling
+    switch (whatPieceToMove)
+    {
+    default:
+        break;
+    case 100:
+        isWhiteKingCastlingPossible = false;
+        isWhiteQueenCastlingPossible = false;
+        break;
+    case 101:
+        isBlackKingCastlingPossible = false;
+        isBlackQueenCastlingPossible = false;
+        break;
+    case 50:
+        if (isHumanWhite == true)
+        {
+            if (selectedPieceX == 7) { isWhiteKingCastlingPossible = false; }
+            if (selectedPieceX == 0) { isWhiteQueenCastlingPossible = false; }
+        }
+        if (isHumanWhite == false)
+        {
+            if (selectedPieceX == 0) { isWhiteKingCastlingPossible = false; }
+            if (selectedPieceX == 7) { isWhiteQueenCastlingPossible = false; }
+        }
+        break;
+    case 51:
+        if (isHumanWhite == false)
+        {
+            if (selectedPieceX == 0) { isBlackKingCastlingPossible = false; }
+            if (selectedPieceX == 7) { isBlackQueenCastlingPossible = false; }
+        }
+        if (isHumanWhite == true)
+        {
+            if (selectedPieceX == 7) { isBlackKingCastlingPossible = false; }
+            if (selectedPieceX == 0) { isBlackQueenCastlingPossible = false; }
+        }
+        break;
+    }
+
+    //En Passant pawn capture
+    if (whatPieceToMove == 10)
+    {
+        if (isHumanWhite == true)
+        {
+            if (isEnPassantForWhitePossible == true && toY == 2)
+            {
+                chessBoard[toY + 1][toX] = 0;
+            }
+        }
+        else
+        {
+            if (isEnPassantForWhitePossible == true && toY == 5)
+            {
+                chessBoard[toY - 1][toX] = 0;
+            }
+        }
+    }
+    if (whatPieceToMove == 11)
+    {
+        if (isHumanWhite == true)
+        {
+            if (isEnPassantForBlackPossible == true && toY == 5)
+            {
+                chessBoard[toY - 1][toX] = 0;
+            }
+        }
+        else
+        {
+            if (isEnPassantForBlackPossible == true && toY == 2)
+            {
+                chessBoard[toY + 1][toX] = 0;
+            }
+        }
+    }
+
+    //isEnPassantPossible
+    if (whatPieceToMove == 10)
+    {
+        if (isHumanWhite == true)
+        {
+            if (selectedPieceY == 6 && toY == 4)
+            {
+                isEnPassantForBlackPossible = true;
+                enPassantX = toX;
+            }
+        }
+        else
+        {
+            if (selectedPieceY == 1 && toY == 3)
+            {
+                isEnPassantForBlackPossible = true;
+                enPassantX = toX;
+            }
+        }
+    }
+    else
+    {
+        isEnPassantForBlackPossible = false;
+    }
+    if (whatPieceToMove == 11)
+    {
+        if (isHumanWhite == true)
+        {
+            if (selectedPieceY == 1 && toY == 3)
+            {
+                isEnPassantForWhitePossible = true;
+                enPassantX = toX;
+            }
+        }
+        else
+        {
+            if (selectedPieceY == 6 && toY == 4)
+            {
+                isEnPassantForWhitePossible = true;
+                enPassantX = toX;
+            }
+        }
+    }
+    else
+    {
+        isEnPassantForWhitePossible = false;
+    }
+
+    if (isWhitesTurn == true) { isWhitesTurn = false; }
+    else { isWhitesTurn = true; }
+
+    resetisChessSquareViableMove();
+    updatePawnToQueenPromotion();
+    updateIsKingInCheck();
+    isGameEnded();
+}
+
 //Main
 int main(int, char**)
 {
@@ -3314,6 +4469,9 @@ int main(int, char**)
     
     boardBeginWhite();
 
+    nnLoad();
+
+    int waitForFrame = 0;
     //Main loop
     bool done = false;
     while (!done)
@@ -3609,6 +4767,27 @@ int main(int, char**)
 
         if (gameEnded == false)
         {
+            if (isAITurnedOn == true && waitForFrame > 5)
+            {
+                if (isHumanWhite == true)
+                {
+                    if (isWhitesTurn == false)
+                    {
+                        nnBoardToInput();
+                        nnThink();
+                        nnWhatMoveToPlay();
+                    }
+                }
+                else
+                {
+                    if (isWhitesTurn == true)
+                    {
+                        nnBoardToInput();
+                        nnThink();
+                        nnWhatMoveToPlay();
+                    }
+                }
+            }
             //Moving Chess Pieces
             ImVec2 mousePosition = ImGui::GetMousePos();
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && mousePosition.x > 80 && mousePosition.x < 560 && mousePosition.y > 100 && mousePosition.y < 580)
@@ -3807,8 +4986,6 @@ int main(int, char**)
                         isEnPassantForWhitePossible = false;
                     }
 
-
-
                     if (isWhitesTurn == true) { isWhitesTurn = false; }
                     else { isWhitesTurn = true; }
 
@@ -3848,9 +5025,9 @@ int main(int, char**)
                         //std::cout << "Black Selection\n";
                     }
                 }
+                waitForFrame = 0;
             }
         }
-
 
         ImGui::End();
         //Rendering
@@ -3863,6 +5040,7 @@ int main(int, char**)
         //Present
         HRESULT hr = g_pSwapChain->Present(1, 0);
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
+        waitForFrame++;
     }
 
     //Cleanup
