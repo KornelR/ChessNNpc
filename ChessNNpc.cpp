@@ -68,6 +68,7 @@ int hypotheticalBoard[8][8];
 int hypotheticalBoardForWhiteKing[8][8];
 int hypotheticalBoardForBlackKing[8][8];
 bool isMoveHypothetical = false;
+int moveNumber = 0;
 
 //White 0 ;=; Black 1
 //Pawn +10 +11
@@ -314,8 +315,6 @@ static void fenToBoardPosition(char FenPos[fenLength])
         enPassantX = FenPos[i] - '0';
         break;
     }
-    
-    isGameEnded();
 }
 
 static void updatePawnToQueenPromotion()
@@ -1385,9 +1384,83 @@ static void updateIsKingInCheck()
     }
 }
 
+static void updateCastlingWhenRookIsCaptured()
+{
+    if (isWhiteKingCastlingPossible == true)
+    {
+        if (isHumanWhite == true)
+        {
+            if (chessBoard[7][7] != 50)
+            {
+                isWhiteKingCastlingPossible = false;
+            }
+        }
+        else
+        {
+            if (chessBoard[0][0] != 50)
+            {
+                isWhiteKingCastlingPossible = false;
+            }
+        }
+    }
+    if (isWhiteQueenCastlingPossible == true)
+    {
+        if (isHumanWhite == true)
+        {
+            if (chessBoard[7][0] != 50)
+            {
+                isWhiteQueenCastlingPossible = false;
+            }
+        }
+        else
+        {
+            if (chessBoard[0][7] != 50)
+            {
+                isWhiteQueenCastlingPossible = false;
+            }
+        }
+    }
+
+    if (isBlackKingCastlingPossible == true)
+    {
+        if (isHumanWhite == true)
+        {
+            if (chessBoard[0][7] != 51)
+            {
+                isBlackKingCastlingPossible = false;
+            }
+        }
+        else
+        {
+            if (chessBoard[7][0] != 51)
+            {
+                isBlackKingCastlingPossible = false;
+            }
+        }
+    }
+    if (isBlackQueenCastlingPossible == true)
+    {
+        if (isHumanWhite == true)
+        {
+            if (chessBoard[0][0] != 51)
+            {
+                isBlackQueenCastlingPossible = false;
+            }
+        }
+        else
+        {
+            if (chessBoard[7][7] != 51)
+            {
+                isBlackQueenCastlingPossible = false;
+            }
+        }
+    }
+}
+
 static void updateViableMoves()
 {
     updateIsKingInCheck();
+    updateCastlingWhenRookIsCaptured();
 
     if (isChessPieceSelected == true)
     {
@@ -3088,41 +3161,43 @@ static void updateViableMoves()
             }
 
             //Castling
-            if (isHumanWhite == true)
+            if (isWhiteKingInCheck == false)
             {
-                if (isWhiteKingCastlingPossible == true && chessBoard[7][5] == 0 && chessBoard[7][6] == 0)
+                if (isHumanWhite == true)
                 {
-                    if (dangerSquaresForWhiteKing[7][5] == false && dangerSquaresForWhiteKing[7][6] == false)
+                    if (isWhiteKingCastlingPossible == true && chessBoard[7][5] == 0 && chessBoard[7][6] == 0)
                     {
-                        isChessSquareViableMove[7][6] = true;
+                        if (dangerSquaresForWhiteKing[7][5] == false && dangerSquaresForWhiteKing[7][6] == false)
+                        {
+                            isChessSquareViableMove[7][6] = true;
+                        }
+                    }
+                    if (isWhiteQueenCastlingPossible == true && chessBoard[7][1] == 0 && chessBoard[7][2] == 0 && chessBoard[7][3] == 0)
+                    {
+                        if (dangerSquaresForWhiteKing[7][2] == false && dangerSquaresForWhiteKing[7][3] == false)
+                        {
+                            isChessSquareViableMove[7][2] = true;
+                        }
                     }
                 }
-                if (isWhiteQueenCastlingPossible == true && chessBoard[7][1] == 0 && chessBoard[7][2] == 0 && chessBoard[7][3] == 0)
+                else
                 {
-                    if (dangerSquaresForWhiteKing[7][2] == false && dangerSquaresForWhiteKing[7][3] == false)
+                    if (isWhiteKingCastlingPossible == true && chessBoard[0][1] == 0 && chessBoard[0][2] == 0)
                     {
-                        isChessSquareViableMove[7][2] = true;
+                        if (dangerSquaresForWhiteKing[0][1] == false && dangerSquaresForWhiteKing[0][2] == false)
+                        {
+                            isChessSquareViableMove[0][1] = true;
+                        }
+                    }
+                    if (isWhiteQueenCastlingPossible == true && chessBoard[0][4] == 0 && chessBoard[0][5] == 0 && chessBoard[0][6] == 0)
+                    {
+                        if (dangerSquaresForWhiteKing[0][4] == false && dangerSquaresForWhiteKing[0][5] == false)
+                        {
+                            isChessSquareViableMove[0][5] = true;
+                        }
                     }
                 }
             }
-            else
-            {
-                if (isWhiteKingCastlingPossible == true && chessBoard[0][1] == 0 && chessBoard[0][2] == 0)
-                {
-                    if (dangerSquaresForWhiteKing[0][1] == false && dangerSquaresForWhiteKing[0][2] == false)
-                    {
-                        isChessSquareViableMove[0][1] = true;
-                    }
-                }
-                if (isWhiteQueenCastlingPossible == true && chessBoard[0][4] == 0 && chessBoard[0][5] == 0 && chessBoard[0][6] == 0)
-                {
-                    if (dangerSquaresForWhiteKing[0][4] == false && dangerSquaresForWhiteKing[0][5] == false)
-                    {
-                        isChessSquareViableMove[0][5] = true;
-                    }
-                }
-            }
-
         }
         break;
 //Black King from Upper Right Counterclockwise
@@ -3234,37 +3309,40 @@ static void updateViableMoves()
             }
 
             //Castling
-            if (isHumanWhite == false)
+            if (isBlackKingInCheck == false)
             {
-                if (isBlackKingCastlingPossible == true && chessBoard[7][1] == 0 && chessBoard[7][2] == 0)
+                if (isHumanWhite == false)
                 {
-                    if (dangerSquaresForBlackKing[7][1] == false && dangerSquaresForBlackKing[7][2] == false)
+                    if (isBlackKingCastlingPossible == true && chessBoard[7][1] == 0 && chessBoard[7][2] == 0)
                     {
-                        isChessSquareViableMove[7][1] = true;
+                        if (dangerSquaresForBlackKing[7][1] == false && dangerSquaresForBlackKing[7][2] == false)
+                        {
+                            isChessSquareViableMove[7][1] = true;
+                        }
+                    }
+                    if (isBlackQueenCastlingPossible == true && chessBoard[7][4] == 0 && chessBoard[7][5] == 0 && chessBoard[7][6] == 0)
+                    {
+                        if (dangerSquaresForBlackKing[7][4] == false && dangerSquaresForBlackKing[7][5] == false)
+                        {
+                            isChessSquareViableMove[7][5] = true;
+                        }
                     }
                 }
-                if (isBlackQueenCastlingPossible == true && chessBoard[7][4] == 0 && chessBoard[7][5] == 0 && chessBoard[7][6] == 0)
+                else
                 {
-                    if (dangerSquaresForBlackKing[7][4] == false && dangerSquaresForBlackKing[7][5] == false)
+                    if (isBlackKingCastlingPossible == true && chessBoard[0][5] == 0 && chessBoard[0][6] == 0)
                     {
-                        isChessSquareViableMove[7][5] = true;
+                        if (dangerSquaresForBlackKing[0][5] == false && dangerSquaresForBlackKing[0][6] == false)
+                        {
+                            isChessSquareViableMove[0][6] = true;
+                        }
                     }
-                }
-            }
-            else
-            {
-                if (isBlackKingCastlingPossible == true && chessBoard[0][5] == 0 && chessBoard[0][6] == 0)
-                {
-                    if (dangerSquaresForBlackKing[0][5] == false && dangerSquaresForBlackKing[0][6] == false)
+                    if (isBlackQueenCastlingPossible == true && chessBoard[0][1] == 0 && chessBoard[0][2] == 0 && chessBoard[0][3] == 0)
                     {
-                        isChessSquareViableMove[0][6] = true;
-                    }
-                }
-                if (isBlackQueenCastlingPossible == true && chessBoard[0][1] == 0 && chessBoard[0][2] == 0 && chessBoard[0][3] == 0)
-                {
-                    if (dangerSquaresForBlackKing[0][2] == false && dangerSquaresForBlackKing[0][3] == false)
-                    {
-                        isChessSquareViableMove[0][2] = true;
+                        if (dangerSquaresForBlackKing[0][2] == false && dangerSquaresForBlackKing[0][3] == false)
+                        {
+                            isChessSquareViableMove[0][2] = true;
+                        }
                     }
                 }
             }
@@ -3279,44 +3357,50 @@ static void isGameEnded()
 {
     isAnyMoveViable = false;
     isChessPieceSelected = true;
-
-    for (int h = 0; h < 8; h++)
+    if (moveNumber >= 100)
     {
-        for (int w = 0; w < 8; w++)
+        gameEnded = true;
+    }
+    if (gameEnded == false)
+    {
+        for (int h = 0; h < 8; h++)
         {
-            if (isWhitesTurn == true)
+            for (int w = 0; w < 8; w++)
             {
-                if (chessBoard[h][w] != 0 && ((chessBoard[h][w] % 10) == 0 || (chessBoard[h][w] % 10) == 2))
+                if (isWhitesTurn == true)
                 {
-                    selectedPieceY = h;
-                    selectedPieceX = w;
-                    updateViableMoves();
-                    for (int i = 0; i < 8; i++)
+                    if (chessBoard[h][w] != 0 && ((chessBoard[h][w] % 10) == 0 || (chessBoard[h][w] % 10) == 2))
                     {
-                        for (int j = 0; j < 8; j++)
+                        selectedPieceY = h;
+                        selectedPieceX = w;
+                        updateViableMoves();
+                        for (int i = 0; i < 8; i++)
                         {
-                            if (isChessSquareViableMove[i][j] == true)
+                            for (int j = 0; j < 8; j++)
                             {
-                                isAnyMoveViable = true;
+                                if (isChessSquareViableMove[i][j] == true)
+                                {
+                                    isAnyMoveViable = true;
+                                }
                             }
                         }
                     }
                 }
-            }
-            if (isWhitesTurn == false)
-            {
-                if (chessBoard[h][w] != 0 && ((chessBoard[h][w] % 10) == 1 || (chessBoard[h][w] % 10) == 3))
+                if (isWhitesTurn == false)
                 {
-                    selectedPieceY = h;
-                    selectedPieceX = w;
-                    updateViableMoves();
-                    for (int i = 0; i < 8; i++)
+                    if (chessBoard[h][w] != 0 && ((chessBoard[h][w] % 10) == 1 || (chessBoard[h][w] % 10) == 3))
                     {
-                        for (int j = 0; j < 8; j++)
+                        selectedPieceY = h;
+                        selectedPieceX = w;
+                        updateViableMoves();
+                        for (int i = 0; i < 8; i++)
                         {
-                            if (isChessSquareViableMove[i][j] == true)
+                            for (int j = 0; j < 8; j++)
                             {
-                                isAnyMoveViable = true;
+                                if (isChessSquareViableMove[i][j] == true)
+                                {
+                                    isAnyMoveViable = true;
+                                }
                             }
                         }
                     }
@@ -3366,7 +3450,7 @@ static void isGameEnded()
     }
 
     isChessPieceSelected = false;
-    //resetisChessSquareViableMove();
+    resetisChessSquareViableMove();
 }
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -3460,6 +3544,9 @@ int biasesLayer6[neuronsInLayer6];
 int biasesLayer7[neuronsInLayer7];
 int biasesLayer8[neuronsInLayer8];
 int biasesLayer9[neuronsInLayer9];
+
+int chessPositionsData[100][64+2];
+bool wasHumanFirstInData = true;
 
 #include <fstream>
 #include <random>
@@ -3785,25 +3872,6 @@ static void nnWriteWithRandomValues()
 static void nnWrite()
 {
     std::ofstream w1("NeuralNetwork/weightsLayer1.txt");
-    std::ofstream w2("NeuralNetwork/weightsLayer2.txt");
-    std::ofstream w3("NeuralNetwork/weightsLayer3.txt");
-    std::ofstream w4("NeuralNetwork/weightsLayer4.txt");
-    std::ofstream w5("NeuralNetwork/weightsLayer5.txt");
-    std::ofstream w6("NeuralNetwork/weightsLayer6.txt");
-    std::ofstream w7("NeuralNetwork/weightsLayer7.txt");
-    std::ofstream w8("NeuralNetwork/weightsLayer8.txt");
-    std::ofstream w9("NeuralNetwork/weightsLayer9.txt");
-
-    std::ofstream b1("NeuralNetwork/biasesLayer1.txt");
-    std::ofstream b2("NeuralNetwork/biasesLayer2.txt");
-    std::ofstream b3("NeuralNetwork/biasesLayer3.txt");
-    std::ofstream b4("NeuralNetwork/biasesLayer4.txt");
-    std::ofstream b5("NeuralNetwork/biasesLayer5.txt");
-    std::ofstream b6("NeuralNetwork/biasesLayer6.txt");
-    std::ofstream b7("NeuralNetwork/biasesLayer7.txt");
-    std::ofstream b8("NeuralNetwork/biasesLayer8.txt");
-    std::ofstream b9("NeuralNetwork/biasesLayer9.txt");
-
     for (int i = 0; i < neuronsInLayer0; i++)
     {
         for (int j = 0; j < neuronsInLayer1; j++)
@@ -3813,6 +3881,7 @@ static void nnWrite()
         w1 << std::endl;
     }
     w1.close();
+    std::ofstream w2("NeuralNetwork/weightsLayer2.txt");
     for (int i = 0; i < neuronsInLayer1; i++)
     {
         for (int j = 0; j < neuronsInLayer2; j++)
@@ -3822,6 +3891,7 @@ static void nnWrite()
         w2 << std::endl;
     }
     w2.close();
+    std::ofstream w3("NeuralNetwork/weightsLayer3.txt");
     for (int i = 0; i < neuronsInLayer2; i++)
     {
         for (int j = 0; j < neuronsInLayer3; j++)
@@ -3831,6 +3901,7 @@ static void nnWrite()
         w3 << std::endl;
     }
     w3.close();
+    std::ofstream w4("NeuralNetwork/weightsLayer4.txt");
     for (int i = 0; i < neuronsInLayer3; i++)
     {
         for (int j = 0; j < neuronsInLayer4; j++)
@@ -3840,6 +3911,7 @@ static void nnWrite()
         w4 << std::endl;
     }
     w4.close();
+    std::ofstream w5("NeuralNetwork/weightsLayer5.txt");
     for (int i = 0; i < neuronsInLayer4; i++)
     {
         for (int j = 0; j < neuronsInLayer5; j++)
@@ -3849,6 +3921,7 @@ static void nnWrite()
         w5 << std::endl;
     }
     w5.close();
+    std::ofstream w6("NeuralNetwork/weightsLayer6.txt");
     for (int i = 0; i < neuronsInLayer5; i++)
     {
         for (int j = 0; j < neuronsInLayer6; j++)
@@ -3858,6 +3931,7 @@ static void nnWrite()
         w6 << std::endl;
     }
     w6.close();
+    std::ofstream w7("NeuralNetwork/weightsLayer7.txt");
     for (int i = 0; i < neuronsInLayer6; i++)
     {
         for (int j = 0; j < neuronsInLayer7; j++)
@@ -3867,6 +3941,7 @@ static void nnWrite()
         w7 << std::endl;
     }
     w7.close();
+    std::ofstream w8("NeuralNetwork/weightsLayer8.txt");
     for (int i = 0; i < neuronsInLayer7; i++)
     {
         for (int j = 0; j < neuronsInLayer8; j++)
@@ -3876,6 +3951,7 @@ static void nnWrite()
         w8 << std::endl;
     }
     w8.close();
+    std::ofstream w9("NeuralNetwork/weightsLayer9.txt");
     for (int i = 0; i < neuronsInLayer8; i++)
     {
         for (int j = 0; j < neuronsInLayer9; j++)
@@ -3885,8 +3961,15 @@ static void nnWrite()
         w9 << std::endl;
     }
     w9.close();
-
-
+    std::ofstream b1("NeuralNetwork/biasesLayer1.txt");
+    std::ofstream b2("NeuralNetwork/biasesLayer2.txt");
+    std::ofstream b3("NeuralNetwork/biasesLayer3.txt");
+    std::ofstream b4("NeuralNetwork/biasesLayer4.txt");
+    std::ofstream b5("NeuralNetwork/biasesLayer5.txt");
+    std::ofstream b6("NeuralNetwork/biasesLayer6.txt");
+    std::ofstream b7("NeuralNetwork/biasesLayer7.txt");
+    std::ofstream b8("NeuralNetwork/biasesLayer8.txt");
+    std::ofstream b9("NeuralNetwork/biasesLayer9.txt");
     for (int i = 0; i < neuronsInLayer1; i++)
     {
         b1 << biasesLayer1[i] + 127 << " ";
@@ -4220,6 +4303,19 @@ static void nnThink()
 
 static void nnWhatMoveToPlay()
 {
+    moveNumber++;
+    if (moveNumber == 1)
+    {
+        wasHumanFirstInData = false;
+    }
+    for (int h = 0; h < 8; h++)
+    {
+        for (int w = 0; w < 8; w++)
+        {
+            chessPositionsData[moveNumber][h * 8 + w] = chessBoard[h][w];
+        }
+    }
+
     //Delete OutputFrom which is empty square or opponnent square
     if (isHumanWhite == true)
     {
@@ -4355,12 +4451,12 @@ static void nnWhatMoveToPlay()
             isGameEnded();
         }
     }
+    int valueTo = -128;
+    int placeTo = 0;
     if (gameEnded == false)
     {
         int toX = 0;
         int toY = 0;
-        int valueTo = -128;
-        int placeTo = 0;
         for (int i = 0; i < 64; i++)
         {
             if (neuronsLayer9[i + 64] > valueTo)
@@ -4586,6 +4682,9 @@ static void nnWhatMoveToPlay()
         updateIsKingInCheck();
         isGameEnded();
     }
+
+    chessPositionsData[moveNumber][64] = placeFrom;
+    chessPositionsData[moveNumber][65] = placeTo;
 }
 
 //Main
@@ -4648,8 +4747,7 @@ int main(int, char**)
     ID3D11ShaderResourceView* wr = NULL; LoadTextureFromFile("assets/wr.png", &wr, &my_image_width, &my_image_height);
     
     boardBeginWhite();
-
-    //nnLoad();
+    nnLoad();
 
     int waitForFrame = 0;
     //Main loop
@@ -4665,11 +4763,15 @@ int main(int, char**)
             ::TranslateMessage(&msg);
             ::DispatchMessage(&msg);
             if (msg.message == WM_QUIT)
+            {
                 done = true;
+            }
         }
         if (done)
+        {
+            //nnWrite();
             break;
-
+        }
         //Handle window being minimized or screen locked
         if (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
         {
@@ -4849,6 +4951,8 @@ int main(int, char**)
             isEnPassantForWhitePossible = false;
             isEnPassantForBlackPossible = false;
             enPassantX = 0;
+            moveNumber = 0;
+            wasHumanFirstInData = false;
         }
 
         ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY - 50));
@@ -4913,6 +5017,7 @@ int main(int, char**)
             ImGui::Text("Disclaimer: Pawn promotion is");
             ImGui::SetCursorPos(ImVec2(starterBoardPosX + 505, starterBoardPosY + 515));
             ImGui::Text("always to the Queen.");
+            ImGui::Text("%d", moveNumber);
 
         if (isHumanWhite == true)
         {
@@ -4978,11 +5083,57 @@ int main(int, char**)
 
                 //Piece Move for both colors
                 if (isChessPieceSelected == true && isChessSquareViableMove[Y][X] == true)
-                {
+                {   //chess Positions data for nn
+                    if (isAITurnedOn == true)
+                    {
+                        moveNumber++;
+                        if (moveNumber == 1)
+                        {
+                            wasHumanFirstInData = true;
+                        }
+                        if (isHumanWhite == false)
+                        {
+                            boardFlip();
+                            for (int h = 0; h < 8; h++)
+                            {
+                                for (int w = 0; w < 8; w++)
+                                {
+                                    chessPositionsData[moveNumber][h * 8 + w] = chessBoard[h][w];
+                                }
+                            }
+                            boardFlip();
+                        }
+                        else
+                        {
+                            for (int h = 0; h < 8; h++)
+                            {
+                                for (int w = 0; w < 8; w++)
+                                {
+                                    chessPositionsData[moveNumber][h * 8 + w] = chessBoard[h][w];
+                                }
+                            }
+                        }
+                    }
                     int whatPieceToMove = chessBoard[selectedPieceY][selectedPieceX];
                     chessBoard[selectedPieceY][selectedPieceX] = 0;
                     chessBoard[Y][X] = whatPieceToMove;
                     if (isGameStarted == false) { isGameStarted = true; }
+                    if (isAITurnedOn == true)
+                    {
+                        if (isHumanWhite == false)
+                        {
+                            boardFlip();
+                            chessPositionsData[moveNumber][64] = selectedPieceY * 8 + selectedPieceX;
+                            chessPositionsData[moveNumber][65] = Y * 8 + X;
+                            boardFlip();
+                        }
+                        else
+                        {
+                            chessPositionsData[moveNumber][64] = selectedPieceY * 8 + selectedPieceX;
+                            chessPositionsData[moveNumber][65] = Y * 8 + X;
+                        }
+                    }
+
                     //Rook move while castling
                     if (whatPieceToMove == 100)
                     {
@@ -5222,7 +5373,6 @@ int main(int, char**)
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
         waitForFrame++;
     }
-
     //Cleanup
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
