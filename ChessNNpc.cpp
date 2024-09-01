@@ -3453,6 +3453,7 @@ static void isGameEnded()
     resetisChessSquareViableMove();
 }
 
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -3545,12 +3546,155 @@ int biasesLayer7[neuronsInLayer7];
 int biasesLayer8[neuronsInLayer8];
 int biasesLayer9[neuronsInLayer9];
 
-int chessPositionsData[100][64+2];
+int nodeValues1[neuronsInLayer1];
+int nodeValues2[neuronsInLayer2];
+int nodeValues3[neuronsInLayer3];
+int nodeValues4[neuronsInLayer4];
+int nodeValues5[neuronsInLayer5];
+int nodeValues6[neuronsInLayer6];
+int nodeValues7[neuronsInLayer7];
+int nodeValues8[neuronsInLayer8];
+int nodeValues9[neuronsInLayer9];
+
+int chessPositionsData[100][66];
+int increment = 0;
 bool wasHumanFirstInData = true;
+float learningRate = 0.0001f;
+bool isBackPropagationRunning = false;
+int tempHowItsFrom = 0;
+int tempHowItsTo = 0;
 
 #include <fstream>
 #include <random>
 #include <string>
+
+int temporaryChessPositionsData[66];
+//chessPositionsData[0][0] = 0 - Draw, 10 - Do like first, -10 - Do like second
+
+static void resetButton()
+{
+    isGameStarted = false;
+    boardReset();
+    boardBeginWhite();
+    isHumanWhite = true;
+    isHumanPlayingAgainstAI = false;
+    isAITurnedOn = false;
+    resetisChessSquareViableMove();
+    isWhitesTurn = true;
+    updateIsKingInCheck();
+    gameEnded = false;
+    didHumanWin = false;
+    isItDraw = false;
+    isAnyMoveViable = true;
+    isWhiteKingCastlingPossible = true;
+    isWhiteQueenCastlingPossible = true;
+    isBlackKingCastlingPossible = true;
+    isBlackQueenCastlingPossible = true;
+    isEnPassantForWhitePossible = false;
+    isEnPassantForBlackPossible = false;
+    enPassantX = 0;
+    moveNumber = 0;
+    wasHumanFirstInData = false;
+}
+
+static void nnCalculateCost(bool draw,bool isBestMoveKnown, int howItsFrom, int howItsTo, int howShouldBeFrom, int howShouldBeTo)
+{
+    if (draw == true)
+    {
+        for (int i = 0; i < 64; i++)
+        {
+            if (i == howItsFrom)
+            {
+                nodeValues9[i] = -neuronsLayer9[i] - 127;
+            }
+            else
+            {
+                nodeValues9[i] = -neuronsLayer9[i];
+            }
+        }
+
+        for (int i = 64; i < 128; i++)
+        {
+            if (i == howItsTo+64)
+            {
+                nodeValues9[i] = -neuronsLayer9[i] - 127;
+            }
+            else
+            {
+                nodeValues9[i] = -neuronsLayer9[i];
+            }
+        }
+    }
+    else
+    {
+        if (isBestMoveKnown == true)
+        {
+            for (int i = 0; i < 64; i++)
+            {
+                if (i == howItsFrom && i == howShouldBeFrom)
+                {
+                    nodeValues9[i] = 0;
+                }
+                else if (i == howShouldBeFrom)
+                {
+                    nodeValues9[i] = -neuronsLayer9[i] + 127;
+                }
+                else
+                {
+                    nodeValues9[i] = -neuronsLayer9[i] - 127;
+                }
+            }
+
+            for (int i = 64; i < 128; i++)
+            {
+                if (i == howItsTo+64 && i == howShouldBeTo+64)
+                {
+                    nodeValues9[i] = 0;
+                }
+                else if (i == howShouldBeTo+64)
+                {
+                    nodeValues9[i] = -neuronsLayer9[i] + 127;
+                }
+                else
+                {
+                    nodeValues9[i] = -neuronsLayer9[i] - 127;
+                }
+            }
+
+        }
+        else
+        {
+            for (int i = 0; i < 64; i++)
+            {
+                if (i == howItsFrom)
+                {
+                    nodeValues9[i] = -neuronsLayer9[i] - 127;
+                }
+                else
+                {
+                    nodeValues9[i] = -neuronsLayer9[i];
+                }
+            }
+            for (int i = 64; i < 128; i++)
+            {
+                if (i == howItsTo+64)
+                {
+                    nodeValues9[i] = -neuronsLayer9[i] - 127;
+                }
+                else
+                {
+                    nodeValues9[i] = -neuronsLayer9[i];
+                }
+            }
+        }
+    }
+
+    //Multiplying by 2; partial derivative
+    for (int i = 0; i < 128; i++)
+    {
+        nodeValues9[i] *= 2;
+    }
+}
 
 static void nnLoad()
 {
@@ -3660,55 +3804,55 @@ static void nnLoad()
     for (int i = 0; i < neuronsInLayer1; i++)
     {
         b1 >> biasesLayer1[i];
-        biasesLayer1[i] -= 127;
+        biasesLayer1[i] -= 1000;
     }
     b1.close();
     for (int i = 0; i < neuronsInLayer2; i++)
     {
         b2 >> biasesLayer2[i];
-        biasesLayer2[i] -= 127;
+        biasesLayer2[i] -= 1000;
     }
     b2.close();
     for (int i = 0; i < neuronsInLayer3; i++)
     {
         b3 >> biasesLayer3[i];
-        biasesLayer3[i] -= 127;
+        biasesLayer3[i] -= 1000;
     }
     b3.close();
     for (int i = 0; i < neuronsInLayer4; i++)
     {
         b4 >> biasesLayer4[i];
-        biasesLayer4[i] -= 127;
+        biasesLayer4[i] -= 1000;
     }
     b4.close();
     for (int i = 0; i < neuronsInLayer5; i++)
     {
         b5 >> biasesLayer5[i];
-        biasesLayer5[i] -= 127;
+        biasesLayer5[i] -= 1000;
     }
     b5.close();
     for (int i = 0; i < neuronsInLayer6; i++)
     {
         b6 >> biasesLayer6[i];
-        biasesLayer6[i] -= 127;
+        biasesLayer6[i] -= 1000;
     }
     b6.close();
     for (int i = 0; i < neuronsInLayer7; i++)
     {
         b7 >> biasesLayer7[i];
-        biasesLayer7[i] -= 127;
+        biasesLayer7[i] -= 1000;
     }
     b7.close();
     for (int i = 0; i < neuronsInLayer8; i++)
     {
         b8 >> biasesLayer8[i];
-        biasesLayer8[i] -= 127;
+        biasesLayer8[i] -= 1000;
     }
     b8.close();
     for (int i = 0; i < neuronsInLayer9; i++)
     {
         b9 >> biasesLayer9[i];
-        biasesLayer9[i] -= 127;
+        biasesLayer9[i] -= 1000;
     }
     b9.close();
 }
@@ -3718,6 +3862,7 @@ static void nnWriteWithRandomValues()
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> distr(0, 254);
+    std::uniform_int_distribution<> distrBias(0, 2000);
 
     std::ofstream w1("NeuralNetwork/weightsLayer1.txt");
     std::ofstream w2("NeuralNetwork/weightsLayer2.txt");
@@ -3743,7 +3888,7 @@ static void nnWriteWithRandomValues()
     {
         for (int j = 0; j < neuronsInLayer1; j++)
         {
-            w1 << distr(gen) - 127 << " ";
+            w1 << distr(gen) << " ";
         }
         w1 << std::endl;
     }
@@ -3752,7 +3897,7 @@ static void nnWriteWithRandomValues()
     {
         for (int j = 0; j < neuronsInLayer2; j++)
         {
-            w2 << distr(gen) - 127 << " ";
+            w2 << distr(gen) << " ";
         }
         w2 << std::endl;
     }
@@ -3761,7 +3906,7 @@ static void nnWriteWithRandomValues()
     {
         for (int j = 0; j < neuronsInLayer3; j++)
         {
-            w3 << distr(gen) - 127 << " ";
+            w3 << distr(gen) << " ";
         }
         w3 << std::endl;
     }
@@ -3770,7 +3915,7 @@ static void nnWriteWithRandomValues()
     {
         for (int j = 0; j < neuronsInLayer4; j++)
         {
-            w4 << distr(gen) - 127 << " ";
+            w4 << distr(gen) << " ";
         }
         w4 << std::endl;
     }
@@ -3779,7 +3924,7 @@ static void nnWriteWithRandomValues()
     {
         for (int j = 0; j < neuronsInLayer5; j++)
         {
-            w5 << distr(gen) - 127 << " ";
+            w5 << distr(gen) << " ";
         }
         w5 << std::endl;
     }
@@ -3788,7 +3933,7 @@ static void nnWriteWithRandomValues()
     {
         for (int j = 0; j < neuronsInLayer6; j++)
         {
-            w6 << distr(gen) - 127 << " ";
+            w6 << distr(gen) << " ";
         }
         w6 << std::endl;
     }
@@ -3797,7 +3942,7 @@ static void nnWriteWithRandomValues()
     {
         for (int j = 0; j < neuronsInLayer7; j++)
         {
-            w7 << distr(gen) - 127 << " ";
+            w7 << distr(gen) << " ";
         }
         w7 << std::endl;
     }
@@ -3806,7 +3951,7 @@ static void nnWriteWithRandomValues()
     {
         for (int j = 0; j < neuronsInLayer8; j++)
         {
-            w8 << distr(gen) - 127 << " ";
+            w8 << distr(gen) << " ";
         }
         w8 << std::endl;
     }
@@ -3815,7 +3960,7 @@ static void nnWriteWithRandomValues()
     {
         for (int j = 0; j < neuronsInLayer9; j++)
         {
-            w9 << distr(gen) - 127 << " ";
+            w9 << distr(gen) << " ";
         }
         w9 << std::endl;
     }
@@ -3824,47 +3969,47 @@ static void nnWriteWithRandomValues()
 
     for (int i = 0; i < neuronsInLayer1; i++)
     {
-        b1 << distr(gen) - 127 << " ";
+        b1 << distrBias(gen) << " ";
     }
     b1.close();
     for (int i = 0; i < neuronsInLayer2; i++)
     {
-        b2 << distr(gen) - 127 << " ";
+        b2 << distrBias(gen) << " ";
     }
     b2.close();
     for (int i = 0; i < neuronsInLayer3; i++)
     {
-        b3 << distr(gen) - 127 << " ";
+        b3 << distrBias(gen) << " ";
     }
     b3.close();
     for (int i = 0; i < neuronsInLayer4; i++)
     {
-        b4 << distr(gen) - 127 << " ";
+        b4 << distrBias(gen) << " ";
     }
     b4.close();
     for (int i = 0; i < neuronsInLayer5; i++)
     {
-        b5 << distr(gen) - 127 << " ";
+        b5 << distrBias(gen) << " ";
     }
     b5.close();
     for (int i = 0; i < neuronsInLayer6; i++)
     {
-        b6 << distr(gen) - 127 << " ";
+        b6 << distrBias(gen) << " ";
     }
     b6.close();
     for (int i = 0; i < neuronsInLayer7; i++)
     {
-        b7 << distr(gen) - 127 << " ";
+        b7 << distrBias(gen) << " ";
     }
     b7.close();
     for (int i = 0; i < neuronsInLayer8; i++)
     {
-        b8 << distr(gen) - 127 << " ";
+        b8 << distrBias(gen) << " ";
     }
     b8.close();
     for (int i = 0; i < neuronsInLayer9; i++)
     {
-        b9 << distr(gen) - 127 << " ";
+        b9 << distrBias(gen) << " ";
     }
     b9.close();
 }
@@ -3972,47 +4117,47 @@ static void nnWrite()
     std::ofstream b9("NeuralNetwork/biasesLayer9.txt");
     for (int i = 0; i < neuronsInLayer1; i++)
     {
-        b1 << biasesLayer1[i] + 127 << " ";
+        b1 << biasesLayer1[i] + 1000 << " ";
     }
     b1.close();
     for (int i = 0; i < neuronsInLayer2; i++)
     {
-        b2 << biasesLayer2[i] + 127 << " ";
+        b2 << biasesLayer2[i] + 1000 << " ";
     }
     b2.close();
     for (int i = 0; i < neuronsInLayer3; i++)
     {
-        b3 << biasesLayer3[i] + 127 << " ";
+        b3 << biasesLayer3[i] + 1000 << " ";
     }
     b3.close();
     for (int i = 0; i < neuronsInLayer4; i++)
     {
-        b4 << biasesLayer4[i] + 127 << " ";
+        b4 << biasesLayer4[i] + 1000 << " ";
     }
     b4.close();
     for (int i = 0; i < neuronsInLayer5; i++)
     {
-        b5 << biasesLayer5[i] + 127 << " ";
+        b5 << biasesLayer5[i] + 1000 << " ";
     }
     b5.close();
     for (int i = 0; i < neuronsInLayer6; i++)
     {
-        b6 << biasesLayer6[i] + 127 << " ";
+        b6 << biasesLayer6[i] + 1000 << " ";
     }
     b6.close();
     for (int i = 0; i < neuronsInLayer7; i++)
     {
-        b7 << biasesLayer7[i] + 127 << " ";
+        b7 << biasesLayer7[i] + 1000 << " ";
     }
     b7.close();
     for (int i = 0; i < neuronsInLayer8; i++)
     {
-        b8 << biasesLayer8[i] + 127 << " ";
+        b8 << biasesLayer8[i] + 1000 << " ";
     }
     b8.close();
     for (int i = 0; i < neuronsInLayer9; i++)
     {
-        b9 << biasesLayer9[i] + 127 << " ";
+        b9 << biasesLayer9[i] + 1000 << " ";
     }
     b9.close();
 }
@@ -4201,6 +4346,14 @@ static void nnThink()
         }
         temporaryNeuronValue -= biasesLayer1[i];
         temporaryNeuronValue /= neuronsInLayer0;
+        if (temporaryNeuronValue > 127)
+        {
+            temporaryNeuronValue = 127;
+        }
+        if (temporaryNeuronValue < -127)
+        {
+            temporaryNeuronValue = -127;
+        }
         neuronsLayer1[i] = temporaryNeuronValue;
     }
     //Calculate 2nd layer
@@ -4213,6 +4366,14 @@ static void nnThink()
         }
         temporaryNeuronValue -= biasesLayer2[i];
         temporaryNeuronValue /= (neuronsInLayer1 * 127);
+        if (temporaryNeuronValue > 127)
+        {
+            temporaryNeuronValue = 127;
+        }
+        if (temporaryNeuronValue < -127)
+        {
+            temporaryNeuronValue = -127;
+        }
         neuronsLayer2[i] = temporaryNeuronValue;
     }
     //Calculate 3rd layer
@@ -4225,6 +4386,14 @@ static void nnThink()
         }
         temporaryNeuronValue -= biasesLayer3[i];
         temporaryNeuronValue /= (neuronsInLayer2 * 127);
+        if (temporaryNeuronValue > 127)
+        {
+            temporaryNeuronValue = 127;
+        }
+        if (temporaryNeuronValue < -127)
+        {
+            temporaryNeuronValue = -127;
+        }
         neuronsLayer3[i] = temporaryNeuronValue;
     }
     //Calculate 4th layer
@@ -4237,6 +4406,14 @@ static void nnThink()
         }
         temporaryNeuronValue -= biasesLayer4[i];
         temporaryNeuronValue /= (neuronsInLayer3 * 127);
+        if (temporaryNeuronValue > 127)
+        {
+            temporaryNeuronValue = 127;
+        }
+        if (temporaryNeuronValue < -127)
+        {
+            temporaryNeuronValue = -127;
+        }
         neuronsLayer4[i] = temporaryNeuronValue;
     }
     //Calculate 5th layer
@@ -4249,6 +4426,14 @@ static void nnThink()
         }
         temporaryNeuronValue -= biasesLayer5[i];
         temporaryNeuronValue /= (neuronsInLayer4 * 127);
+        if (temporaryNeuronValue > 127)
+        {
+            temporaryNeuronValue = 127;
+        }
+        if (temporaryNeuronValue < -127)
+        {
+            temporaryNeuronValue = -127;
+        }
         neuronsLayer5[i] = temporaryNeuronValue;
     }
     //Calculate 6th layer
@@ -4261,6 +4446,14 @@ static void nnThink()
         }
         temporaryNeuronValue -= biasesLayer6[i];
         temporaryNeuronValue /= (neuronsInLayer5 * 127);
+        if (temporaryNeuronValue > 127)
+        {
+            temporaryNeuronValue = 127;
+        }
+        if (temporaryNeuronValue < -127)
+        {
+            temporaryNeuronValue = -127;
+        }
         neuronsLayer6[i] = temporaryNeuronValue;
     }
     //Calculate 7th layer
@@ -4273,6 +4466,14 @@ static void nnThink()
         }
         temporaryNeuronValue -= biasesLayer7[i];
         temporaryNeuronValue /= (neuronsInLayer6 * 127);
+        if (temporaryNeuronValue > 127)
+        {
+            temporaryNeuronValue = 127;
+        }
+        if (temporaryNeuronValue < -127)
+        {
+            temporaryNeuronValue = -127;
+        }
         neuronsLayer7[i] = temporaryNeuronValue;
     }
     //Calculate 8th layer
@@ -4285,6 +4486,14 @@ static void nnThink()
         }
         temporaryNeuronValue -= biasesLayer8[i];
         temporaryNeuronValue /= (neuronsInLayer7 * 127);
+        if (temporaryNeuronValue > 127)
+        {
+            temporaryNeuronValue = 127;
+        }
+        if (temporaryNeuronValue < -127)
+        {
+            temporaryNeuronValue = -127;
+        }
         neuronsLayer8[i] = temporaryNeuronValue;      
     }
     //Calculate 9th layer
@@ -4297,25 +4506,35 @@ static void nnThink()
         }
         temporaryNeuronValue -= biasesLayer9[i];
         temporaryNeuronValue /= (neuronsInLayer8 * 127);
+        if (temporaryNeuronValue > 127)
+        {
+            temporaryNeuronValue = 127;
+        }
+        if (temporaryNeuronValue < -127)
+        {
+            temporaryNeuronValue = -127;
+        }
         neuronsLayer9[i] = temporaryNeuronValue;
     }
 }
 
 static void nnWhatMoveToPlay()
 {
-    moveNumber++;
-    if (moveNumber == 1)
+    if (isBackPropagationRunning == false)
     {
-        wasHumanFirstInData = false;
-    }
-    for (int h = 0; h < 8; h++)
-    {
-        for (int w = 0; w < 8; w++)
+        moveNumber++;
+        if (moveNumber == 1)
         {
-            chessPositionsData[moveNumber][h * 8 + w] = chessBoard[h][w];
+            wasHumanFirstInData = false;
+        }
+        for (int h = 0; h < 8; h++)
+        {
+            for (int w = 0; w < 8; w++)
+            {
+                chessPositionsData[moveNumber][h * 8 + w] = chessBoard[h][w];
+            }
         }
     }
-
     //Delete OutputFrom which is empty square or opponnent square
     if (isHumanWhite == true)
     {
@@ -4325,7 +4544,7 @@ static void nnWhatMoveToPlay()
             {
                 if (chessBoard[h][w] == 0 || chessBoard[h][w] % 10 == 0 || chessBoard[h][w] % 10 == 2)
                 {
-                    neuronsLayer9[h * 8 + w] = -256;
+                    neuronsLayer9[h * 8 + w] = -128;
                 }
             }
         }
@@ -4338,7 +4557,7 @@ static void nnWhatMoveToPlay()
             {
                 if (chessBoard[h][w] == 0 || chessBoard[h][w] % 10 == 1 || chessBoard[h][w] % 10 == 3)
                 {
-                    neuronsLayer9[h * 8 + w] = -256;
+                    neuronsLayer9[h * 8 + w] = -128;
                 }
             }
         }
@@ -4366,7 +4585,7 @@ static void nnWhatMoveToPlay()
             {
                 if (isChessSquareViableMove[h][w] == false)
                 {
-                    neuronsLayer9[h * 8 + w + 64] = -256;
+                    neuronsLayer9[h * 8 + w + 64] = -128;
                 }
             }
         }
@@ -4393,7 +4612,7 @@ static void nnWhatMoveToPlay()
             {
                 if (isChessSquareViableMove[h][w] == false)
                 {
-                    neuronsLayer9[h * 8 + w + 64] = -256;
+                    neuronsLayer9[h * 8 + w + 64] = -128;
                 }
             }
         }
@@ -4405,6 +4624,9 @@ static void nnWhatMoveToPlay()
 
     int valueFrom = -128;
     int placeFrom = 0;
+
+    int toX = 0;
+    int toY = 0;
 
     while (doesThisPieceHaveMoves == false)
     {
@@ -4436,7 +4658,7 @@ static void nnWhatMoveToPlay()
         }
         if (doesThisPieceHaveMoves == false)
         {
-            neuronsLayer9[selectedPieceY * 8 + selectedPieceX] = -256;
+            neuronsLayer9[selectedPieceY * 8 + selectedPieceX] = -128;
             resetisChessSquareViableMove();
         }
         for (int i = 0; i < 64; i++)
@@ -4455,8 +4677,7 @@ static void nnWhatMoveToPlay()
     int placeTo = 0;
     if (gameEnded == false)
     {
-        int toX = 0;
-        int toY = 0;
+
         for (int i = 0; i < 64; i++)
         {
             if (neuronsLayer9[i + 64] > valueTo)
@@ -4484,6 +4705,12 @@ static void nnWhatMoveToPlay()
             toX = placeTo % 8;
             placeTo -= toX;
             toY = placeTo / 8;
+        }
+        //for NN
+        if (isBackPropagationRunning == false)
+        {
+            chessPositionsData[moveNumber][64] = (selectedPieceY * 8) + selectedPieceX;
+            chessPositionsData[moveNumber][65] = (toY * 8) + toX;
         }
         //Moving piece
         int whatPieceToMove = chessBoard[selectedPieceY][selectedPieceX];
@@ -4682,9 +4909,560 @@ static void nnWhatMoveToPlay()
         updateIsKingInCheck();
         isGameEnded();
     }
+    if (isBackPropagationRunning == true)
+    {
+        tempHowItsFrom = placeFrom;
+        tempHowItsTo = placeTo;
+    }
+}
 
-    chessPositionsData[moveNumber][64] = placeFrom;
-    chessPositionsData[moveNumber][65] = placeTo;
+static void nnBackPropagation()
+{
+    //W9 update
+    for (int h = 0; h < neuronsInLayer8; h++)
+    {
+        for (int w = 0; w < neuronsInLayer9; w++)
+        {
+            weightsLayer9[h][w] += (nodeValues9[w] * neuronsLayer8[h] * learningRate * ((increment/10) + 1));
+            if (weightsLayer9[h][w] > 127)
+            {
+                weightsLayer9[h][w] = 127;
+            }
+            if (weightsLayer9[h][w] < -127)
+            {
+                weightsLayer9[h][w] = -127;
+            }
+        }
+    }
+    //B9 update
+    for (int i = 0; i < neuronsInLayer9; i++)
+    {
+        biasesLayer9[i] += (nodeValues9[i]);
+        if (biasesLayer9[i] > 1000)
+        {
+            biasesLayer9[i] = 1000;
+        }
+        if (biasesLayer9[i] < -1000)
+        {
+            biasesLayer9[i] = -1000;
+        }
+    }
+    //Node8 update
+    for (int i = 0; i < neuronsInLayer8; i++)
+    {
+        for (int j = 0; j < neuronsInLayer9; j++)
+        {
+            nodeValues8[i] += weightsLayer9[i][j] * nodeValues9[j];
+        }
+        nodeValues8[i] /= (neuronsInLayer9 * neuronsInLayer9);
+        if (nodeValues8[i] > 127)
+        {
+            nodeValues8[i] = 127;
+        }
+        if (nodeValues8[i] < - 127)
+        {
+            nodeValues8[i] = -127;
+        }
+    }
+    //Multiplying by 2; partial derivative
+    for (int i = 0; i < neuronsInLayer8; i++)
+    {
+        nodeValues8[i] *= 2;
+    }
+    //////////////////////////////////////
+    //W8 update
+    for (int h = 0; h < neuronsInLayer7; h++)
+    {
+        for (int w = 0; w < neuronsInLayer8; w++)
+        {
+            weightsLayer8[h][w] += (nodeValues8[w] * neuronsLayer7[h] * learningRate * (increment / 10 + 1));
+            if (weightsLayer8[h][w] > 127)
+            {
+                weightsLayer8[h][w] = 127;
+            }
+            if (weightsLayer8[h][w] < -127)
+            {
+                weightsLayer8[h][w] = -127;
+            }
+        }
+    }
+    //B8 update
+    for (int i = 0; i < neuronsInLayer8; i++)
+    {
+        biasesLayer8[i] += (nodeValues8[i]);
+        if (biasesLayer8[i] > 1000)
+        {
+            biasesLayer8[i] = 1000;
+        }
+        if (biasesLayer8[i] < -1000)
+        {
+            biasesLayer8[i] = -1000;
+        }
+    }
+    //Node7 update
+    for (int i = 0; i < neuronsInLayer7; i++)
+    {
+        for (int j = 0; j < neuronsInLayer8; j++)
+        {
+            nodeValues7[i] += weightsLayer8[i][j] * nodeValues8[j];
+        }
+        nodeValues7[i] /= (neuronsInLayer8 * neuronsInLayer8);
+        if (nodeValues7[i] > 127)
+        {
+            nodeValues7[i] = 127;
+        }
+        if (nodeValues7[i] < -127)
+        {
+            nodeValues7[i] = -127;
+        }
+    }
+    //Multiplying by 2; partial derivative
+    for (int i = 0; i < neuronsInLayer7; i++)
+    {
+        nodeValues7[i] *= 2;
+    }
+    //////////////////////////////////////
+    //W7 update
+    for (int h = 0; h < neuronsInLayer6; h++)
+    {
+        for (int w = 0; w < neuronsInLayer7; w++)
+        {
+            weightsLayer7[h][w] += (nodeValues7[w] * neuronsLayer6[h] * learningRate * (increment / 10 + 1));
+            if (weightsLayer7[h][w] > 127)
+            {
+                weightsLayer7[h][w] = 127;
+            }
+            if (weightsLayer7[h][w] < -127)
+            {
+                weightsLayer7[h][w] = -127;
+            }
+        }
+    }
+    //B7 update
+    for (int i = 0; i < neuronsInLayer7; i++)
+    {
+        biasesLayer7[i] += (nodeValues7[i]);
+        if (biasesLayer7[i] > 1000)
+        {
+            biasesLayer7[i] = 1000;
+        }
+        if (biasesLayer7[i] < -1000)
+        {
+            biasesLayer7[i] = -1000;
+        }
+    }
+    //Node6 update
+    for (int i = 0; i < neuronsInLayer6; i++)
+    {
+        for (int j = 0; j < neuronsInLayer7; j++)
+        {
+            nodeValues6[i] += weightsLayer7[i][j] * nodeValues7[j];
+        }
+        nodeValues6[i] /= (neuronsInLayer7 * neuronsInLayer7);
+        if (nodeValues6[i] > 127)
+        {
+            nodeValues6[i] = 127;
+        }
+        if (nodeValues6[i] < -127)
+        {
+            nodeValues6[i] = -127;
+        }
+    }
+    //Multiplying by 2; partial derivative
+    for (int i = 0; i < neuronsInLayer6; i++)
+    {
+        nodeValues6[i] *= 2;
+    }
+    //////////////////////////////////////
+    //W6 update
+    for (int h = 0; h < neuronsInLayer5; h++)
+    {
+        for (int w = 0; w < neuronsInLayer6; w++)
+        {
+            weightsLayer6[h][w] += (nodeValues6[w] * neuronsLayer5[h] * learningRate * (increment / 10 + 1));
+            if (weightsLayer6[h][w] > 127)
+            {
+                weightsLayer6[h][w] = 127;
+            }
+            if (weightsLayer6[h][w] < -127)
+            {
+                weightsLayer6[h][w] = -127;
+            }
+        }
+    }
+    //B6 update
+    for (int i = 0; i < neuronsInLayer6; i++)
+    {
+        biasesLayer6[i] += (nodeValues6[i]);
+        if (biasesLayer6[i] > 1000)
+        {
+            biasesLayer6[i] = 1000;
+        }
+        if (biasesLayer6[i] < -1000)
+        {
+            biasesLayer6[i] = -1000;
+        }
+    }
+    //Node5 update
+    for (int i = 0; i < neuronsInLayer5; i++)
+    {
+        for (int j = 0; j < neuronsInLayer6; j++)
+        {
+            nodeValues5[i] += weightsLayer6[i][j] * nodeValues6[j];
+        }
+        nodeValues5[i] /= (neuronsInLayer6 * neuronsInLayer6);
+        if (nodeValues5[i] > 127)
+        {
+            nodeValues5[i] = 127;
+        }
+        if (nodeValues5[i] < -127)
+        {
+            nodeValues5[i] = -127;
+        }
+    }
+    //Multiplying by 2; partial derivative
+    for (int i = 0; i < neuronsInLayer5; i++)
+    {
+        nodeValues5[i] *= 2;
+    }
+    //////////////////////////////////////
+    //W5 update
+    for (int h = 0; h < neuronsInLayer4; h++)
+    {
+        for (int w = 0; w < neuronsInLayer5; w++)
+        {
+            weightsLayer5[h][w] += (nodeValues5[w] * neuronsLayer4[h] * learningRate * (increment / 10 + 1));
+            if (weightsLayer5[h][w] > 127)
+            {
+                weightsLayer5[h][w] = 127;
+            }
+            if (weightsLayer5[h][w] < -127)
+            {
+                weightsLayer5[h][w] = -127;
+            }
+        }
+    }
+    //B5 update
+    for (int i = 0; i < neuronsInLayer5; i++)
+    {
+        biasesLayer5[i] += (nodeValues5[i]);
+        if (biasesLayer5[i] > 1000)
+        {
+            biasesLayer5[i] = 1000;
+        }
+        if (biasesLayer5[i] < -1000)
+        {
+            biasesLayer5[i] = -1000;
+        }
+    }
+    //Node4 update
+    for (int i = 0; i < neuronsInLayer4; i++)
+    {
+        for (int j = 0; j < neuronsInLayer5; j++)
+        {
+            nodeValues4[i] += weightsLayer5[i][j] * nodeValues5[j];
+        }
+        nodeValues4[i] /= (neuronsInLayer5 * neuronsInLayer5);
+        if (nodeValues4[i] > 127)
+        {
+            nodeValues4[i] = 127;
+        }
+        if (nodeValues4[i] < -127)
+        {
+            nodeValues4[i] = -127;
+        }
+    }
+    //Multiplying by 2; partial derivative
+    for (int i = 0; i < neuronsInLayer4; i++)
+    {
+        nodeValues4[i] *= 2;
+    }
+    //////////////////////////////////////
+    //W4 update
+    for (int h = 0; h < neuronsInLayer3; h++)
+    {
+        for (int w = 0; w < neuronsInLayer4; w++)
+        {
+            weightsLayer4[h][w] += (nodeValues4[w] * neuronsLayer3[h] * learningRate * (increment / 10 + 1));
+            if (weightsLayer4[h][w] > 127)
+            {
+                weightsLayer4[h][w] = 127;
+            }
+            if (weightsLayer4[h][w] < -127)
+            {
+                weightsLayer4[h][w] = -127;
+            }
+        }
+    }
+    //B4 update
+    for (int i = 0; i < neuronsInLayer4; i++)
+    {
+        biasesLayer4[i] += (nodeValues4[i]);
+        if (biasesLayer4[i] > 1000)
+        {
+            biasesLayer4[i] = 1000;
+        }
+        if (biasesLayer4[i] < -1000)
+        {
+            biasesLayer4[i] = -1000;
+        }
+    }
+    //Node3 update
+    for (int i = 0; i < neuronsInLayer3; i++)
+    {
+        for (int j = 0; j < neuronsInLayer4; j++)
+        {
+            nodeValues3[i] += weightsLayer4[i][j] * nodeValues4[j];
+        }
+        nodeValues3[i] /= (neuronsInLayer4 * neuronsInLayer4);
+        if (nodeValues3[i] > 127)
+        {
+            nodeValues3[i] = 127;
+        }
+        if (nodeValues3[i] < -127)
+        {
+            nodeValues3[i] = -127;
+        }
+    }
+    //Multiplying by 2; partial derivative
+    for (int i = 0; i < neuronsInLayer3; i++)
+    {
+        nodeValues3[i] *= 2;
+    }
+    //////////////////////////////////////
+    //W3 update
+    for (int h = 0; h < neuronsInLayer2; h++)
+    {
+        for (int w = 0; w < neuronsInLayer3; w++)
+        {
+            weightsLayer3[h][w] += (nodeValues3[w] * neuronsLayer2[h] * learningRate * (increment / 10 + 1));
+            if (weightsLayer3[h][w] > 127)
+            {
+                weightsLayer3[h][w] = 127;
+            }
+            if (weightsLayer3[h][w] < -127)
+            {
+                weightsLayer3[h][w] = -127;
+            }
+        }
+    }
+    //B3 update
+    for (int i = 0; i < neuronsInLayer3; i++)
+    {
+        biasesLayer3[i] += (nodeValues3[i]);
+        if (biasesLayer3[i] > 1000)
+        {
+            biasesLayer3[i] = 1000;
+        }
+        if (biasesLayer3[i] < -1000)
+        {
+            biasesLayer3[i] = -1000;
+        }
+    }
+    //Node2 update
+    for (int i = 0; i < neuronsInLayer2; i++)
+    {
+        for (int j = 0; j < neuronsInLayer3; j++)
+        {
+            nodeValues2[i] += weightsLayer3[i][j] * nodeValues3[j];
+        }
+        nodeValues2[i] /= (neuronsInLayer3 * neuronsInLayer3);
+        if (nodeValues2[i] > 127)
+        {
+            nodeValues2[i] = 127;
+        }
+        if (nodeValues2[i] < -127)
+        {
+            nodeValues2[i] = -127;
+        }
+    }
+    //Multiplying by 2; partial derivative
+    for (int i = 0; i < neuronsInLayer2; i++)
+    {
+        nodeValues2[i] *= 2;
+    }
+    //////////////////////////////////////
+    //W2 update
+    for (int h = 0; h < neuronsInLayer1; h++)
+    {
+        for (int w = 0; w < neuronsInLayer2; w++)
+        {
+            weightsLayer2[h][w] += (nodeValues2[w] * neuronsLayer1[h] * learningRate * (increment / 10 + 1));
+            if (weightsLayer2[h][w] > 127)
+            {
+                weightsLayer2[h][w] = 127;
+            }
+            if (weightsLayer2[h][w] < -127)
+            {
+                weightsLayer2[h][w] = -127;
+            }
+        }
+    }
+    //B2 update
+    for (int i = 0; i < neuronsInLayer2; i++)
+    {
+        biasesLayer2[i] += (nodeValues2[i]);
+        if (biasesLayer2[i] > 1000)
+        {
+            biasesLayer2[i] = 1000;
+        }
+        if (biasesLayer2[i] < -1000)
+        {
+            biasesLayer2[i] = -1000;
+        }
+    }
+    //Node1 update
+    for (int i = 0; i < neuronsInLayer1; i++)
+    {
+        for (int j = 0; j < neuronsInLayer2; j++)
+        {
+            nodeValues1[i] += weightsLayer2[i][j] * nodeValues2[j];
+        }
+        nodeValues1[i] /= (neuronsInLayer2 * neuronsInLayer2);
+        if (nodeValues1[i] > 127)
+        {
+            nodeValues1[i] = 127;
+        }
+        if (nodeValues1[i] < -127)
+        {
+            nodeValues1[i] = -127;
+        }
+    }
+    //Multiplying by 2; partial derivative
+    for (int i = 0; i < neuronsInLayer1; i++)
+    {
+        nodeValues1[i] *= 2;
+    }
+    //////////////////////////////////////
+    //W2 update
+    for (int h = 0; h < neuronsInLayer0; h++)
+    {
+        for (int w = 0; w < neuronsInLayer1; w++)
+        {
+            weightsLayer1[h][w] += (nodeValues1[w] * neuronsLayer0[h] * learningRate * (increment / 10 + 1));
+            if (weightsLayer1[h][w] > 127)
+            {
+                weightsLayer1[h][w] = 127;
+            }
+            if (weightsLayer1[h][w] < -127)
+            {
+                weightsLayer1[h][w] = -127;
+            }
+        }
+    }
+    //B2 update
+    for (int i = 0; i < neuronsInLayer1; i++)
+    {
+        biasesLayer1[i] += (nodeValues1[i]);
+        if (biasesLayer1[i] > 1000)
+        {
+            biasesLayer1[i] = 1000;
+        }
+        if (biasesLayer1[i] < -1000)
+        {
+            biasesLayer1[i] = -1000;
+        }
+    }
+}
+
+static void nnBackPropagationHandler()
+{
+    bool isDataDraw = false;
+    bool isFirstDataWin = false;
+    if (chessPositionsData[0][0] == 0)
+    {
+        isDataDraw = true;
+    }
+    else if (chessPositionsData[0][0] == 10)
+    {
+        isFirstDataWin = true;
+    }
+    increment = 1;
+    while (increment < 99 && increment < moveNumber)
+    {
+        if (isDataDraw == true)
+        {
+            for (int h = 0; h < 8; h++)
+            {
+                for (int w = 0; w < 8; w++)
+                {
+                    chessBoard[h][w] = chessPositionsData[increment][(h * 8 + w)];
+                }
+            }
+            nnBoardToInput();
+            nnThink();
+            nnWhatMoveToPlay();
+            nnCalculateCost(true, false, 0, 0, 0, 0);
+            nnBackPropagation();
+            increment++;
+        }
+        else
+        {
+            if (isFirstDataWin == true)
+            {
+                for (int h = 0; h < 8; h++)
+                {
+                    for (int w = 0; w < 8; w++)
+                    {
+                        chessBoard[h][w] = chessPositionsData[increment][(h * 8 + w)];
+                    }
+                }
+                nnBoardToInput();
+                nnThink();
+                nnWhatMoveToPlay();
+                nnCalculateCost(false, true, tempHowItsFrom, tempHowItsTo, chessPositionsData[increment][64], chessPositionsData[increment][65]);
+                nnBackPropagation();
+                increment++;
+
+                for (int h = 0; h < 8; h++)
+                {
+                    for (int w = 0; w < 8; w++)
+                    {
+                        chessBoard[h][w] = chessPositionsData[increment][(h * 8 + w)];
+                    }
+                }
+
+                nnBoardToInput();
+                nnThink();
+                nnWhatMoveToPlay();
+                nnCalculateCost(false, false, tempHowItsFrom, tempHowItsTo, 0, 0);
+                nnBackPropagation();
+                increment++;
+            }
+            else
+            {
+                for (int h = 0; h < 8; h++)
+                {
+                    for (int w = 0; w < 8; w++)
+                    {
+                        chessBoard[h][w] = chessPositionsData[increment][(h * 8 + w)];
+                    }
+                }
+                nnBoardToInput();
+                nnThink();
+                nnWhatMoveToPlay();
+                nnCalculateCost(false, false, tempHowItsFrom, tempHowItsTo, 0, 0);
+                nnBackPropagation();
+                increment++;
+
+                for (int h = 0; h < 8; h++)
+                {
+                    for (int w = 0; w < 8; w++)
+                    {
+                        chessBoard[h][w] = chessPositionsData[increment][(h * 8 + w)];
+                    }
+                }
+                nnBoardToInput();
+                nnThink();
+                nnWhatMoveToPlay();
+                nnCalculateCost(false, true, tempHowItsFrom, tempHowItsTo, chessPositionsData[increment][64], chessPositionsData[increment][65]);
+                nnBackPropagation();
+                increment++;
+
+            }
+        }      
+    }
+    resetButton();
 }
 
 //Main
@@ -4931,28 +5709,7 @@ int main(int, char**)
         ImGui::SetCursorPos(ImVec2(my_image_width * 8 + starterBoardPosX + 160, my_image_height * 4 + starterBoardPosY - 30));
         if (ImGui::Button("Reset", ImVec2(60, 60)))
         {
-            isGameStarted = false;
-            boardReset();
-            boardBeginWhite();
-            isHumanWhite = true;
-            isHumanPlayingAgainstAI = false;
-            isAITurnedOn = false;
-            resetisChessSquareViableMove();
-            isWhitesTurn = true;
-            updateIsKingInCheck();
-            gameEnded = false;
-            didHumanWin = false;
-            isItDraw = false;
-            isAnyMoveViable = true;
-            isWhiteKingCastlingPossible = true;
-            isWhiteQueenCastlingPossible = true;
-            isBlackKingCastlingPossible = true;
-            isBlackQueenCastlingPossible = true;
-            isEnPassantForWhitePossible = false;
-            isEnPassantForBlackPossible = false;
-            enPassantX = 0;
-            moveNumber = 0;
-            wasHumanFirstInData = false;
+            resetButton();
         }
 
         ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY - 50));
@@ -5048,6 +5805,41 @@ int main(int, char**)
                     ImGui::Text("It's a Loss :( ");
                 }
             }
+        }
+
+        //Backpropagation after game's end
+        if (gameEnded == true)
+        {
+            if (isItDraw == true)
+            {
+                chessPositionsData[0][0] = 0;
+            }
+            else if (wasHumanFirstInData == true)
+            {
+                if (didHumanWin == true)
+                {
+                    chessPositionsData[0][0] = 10;
+                }
+                else
+                {
+                    chessPositionsData[0][0] = -10;
+                }
+            }
+            else if (wasHumanFirstInData == false)
+            {
+                if (didHumanWin == true)
+                {
+                    chessPositionsData[0][0] = -10;
+                }
+                else
+                {
+                    chessPositionsData[0][0] = 10;
+                }
+            }
+
+            isBackPropagationRunning = true;
+            nnBackPropagationHandler();
+            isBackPropagationRunning = false;
         }
 
         if (gameEnded == false)
