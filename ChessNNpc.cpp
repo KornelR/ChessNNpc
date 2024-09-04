@@ -3556,6 +3556,8 @@ int nodeValues7[neuronsInLayer7];
 int nodeValues8[neuronsInLayer8];
 int nodeValues9[neuronsInLayer9];
 
+bool isTestingON = false;
+
 int chessPositionsData[100][66];
 int increment = 0;
 bool wasHumanFirstInData = true;
@@ -3689,11 +3691,30 @@ static void nnCalculateCost(bool draw,bool isBestMoveKnown, int howItsFrom, int 
         }
     }
 
+    if (isTestingON == true)
+    {
+        std::cout << "\nNode Values9: ";
+        for (int i = 0; i < 128; i++)
+        {
+            std::cout << nodeValues9[i] << ".";
+        }
+    }
+
     //Multiplying by 2; partial derivative
     for (int i = 0; i < 128; i++)
     {
         nodeValues9[i] *= 2;
     }
+
+    if (isTestingON == true)
+    {
+        std::cout << "\nAfter derivative: ";
+        for (int i = 0; i < 128; i++)
+        {
+            std::cout << nodeValues9[i] << ".";
+        }
+    }
+
 }
 
 static void nnLoad()
@@ -4520,6 +4541,15 @@ static void nnThink()
 
 static void nnWhatMoveToPlay()
 {
+    if (isTestingON == true)
+    {
+        std::cout << "Last Layer Neurons: ";
+        for (int i = 0; i < neuronsInLayer9; i++)
+        {
+            std::cout << neuronsLayer9[i] << ".";
+        }
+        std::cout << "\n";
+    }
     if (isBackPropagationRunning == false)
     {
         moveNumber++;
@@ -4527,11 +4557,19 @@ static void nnWhatMoveToPlay()
         {
             wasHumanFirstInData = false;
         }
+        if (isTestingON == true)
+        {
+            std::cout << "ChessData: ";
+        }
         for (int h = 0; h < 8; h++)
         {
             for (int w = 0; w < 8; w++)
             {
                 chessPositionsData[moveNumber][h * 8 + w] = chessBoard[h][w];
+                if (isTestingON == true)
+                {
+                    std::cout << chessBoard[h][w] << ".";
+                }
             }
         }
     }
@@ -4711,6 +4749,10 @@ static void nnWhatMoveToPlay()
         {
             chessPositionsData[moveNumber][64] = (selectedPieceY * 8) + selectedPieceX;
             chessPositionsData[moveNumber][65] = (toY * 8) + toX;
+            if (isTestingON == true)
+            {
+                std::cout << "\nMoves: " << chessPositionsData[moveNumber][64] << "." << chessPositionsData[moveNumber][65];
+            }
         }
         //Moving piece
         int whatPieceToMove = chessBoard[selectedPieceY][selectedPieceX];
@@ -4932,6 +4974,12 @@ static void nnBackPropagation()
             {
                 weightsLayer9[h][w] = -127;
             }
+            if (isTestingON == true)
+            {
+                std::cout << "Weight:" << weightsLayer9[h][w];
+                std::cout << " . Node: " << nodeValues9[w] << " . NL8: " << neuronsLayer8[h] << " . LR: " << learningRate << " . Inc: " << (increment / 10) + 1;
+            }
+            std::cout << "\n";
         }
     }
     //B9 update
@@ -4948,11 +4996,16 @@ static void nnBackPropagation()
         }
     }
     //Node8 update
+    if (isTestingON == true)
+    {
+        std::cout << "\n";
+    }
     for (int i = 0; i < neuronsInLayer8; i++)
     {
         for (int j = 0; j < neuronsInLayer9; j++)
         {
             nodeValues8[i] += weightsLayer9[i][j] * nodeValues9[j];
+
         }
         nodeValues8[i] /= (neuronsInLayer9 * neuronsInLayer9);
         if (nodeValues8[i] > 127)
@@ -4963,6 +5016,11 @@ static void nnBackPropagation()
         {
             nodeValues8[i] = -127;
         }
+        if (isTestingON == true)
+        {
+            std::cout << "NV8: " << nodeValues8[i] << ".WL:" << weightsLayer9[i][0] << ". NV9:" << nodeValues9[0] << ".";
+        }
+        std::cout << "\n";
     }
     //Multiplying by 2; partial derivative
     for (int i = 0; i < neuronsInLayer8; i++)
@@ -5334,7 +5392,7 @@ static void nnBackPropagation()
         nodeValues1[i] *= 2;
     }
     //////////////////////////////////////
-    //W2 update
+    //W1 update
     for (int h = 0; h < neuronsInLayer0; h++)
     {
         for (int w = 0; w < neuronsInLayer1; w++)
@@ -5350,7 +5408,7 @@ static void nnBackPropagation()
             }
         }
     }
-    //B2 update
+    //B1 update
     for (int i = 0; i < neuronsInLayer1; i++)
     {
         biasesLayer1[i] += (nodeValues1[i]);
@@ -5465,6 +5523,19 @@ static void nnBackPropagationHandler()
     resetButton();
 }
 
+static void nnTESTING()
+{
+    isTestingON = true;
+}
+
+// Warstwa 9 Neuronow = 0; nie wiem czemu nie dziala
+// Cost jest albo -127 albo 1 
+// Node Values sa w pizde wysokie
+//Cale NNThink do przerobienia
+//Jedyne co troche dziala to Warstwa 1, wartosci sa bliskie zeru +- 5
+//Wszystkie kolejne to same zera
+
+
 //Main
 int main(int, char**)
 {
@@ -5526,6 +5597,7 @@ int main(int, char**)
     
     boardBeginWhite();
     nnLoad();
+    nnTESTING();
 
     int waitForFrame = 0;
     //Main loop
@@ -5837,9 +5909,9 @@ int main(int, char**)
                 }
             }
 
-            isBackPropagationRunning = true;
-            nnBackPropagationHandler();
-            isBackPropagationRunning = false;
+            //isBackPropagationRunning = true;
+            //nnBackPropagationHandler();
+            //isBackPropagationRunning = false;
         }
 
         if (gameEnded == false)
@@ -5850,18 +5922,87 @@ int main(int, char**)
                 {
                     if (isWhitesTurn == false)
                     {
-                        nnBoardToInput();
-                        nnThink();
-                        nnWhatMoveToPlay();
+                        if (isTestingON == true)
+                        {
+                            gameEnded = true;
+                            isBackPropagationRunning = true;
+                            nnBoardToInput();
+                            nnThink();
+
+                            std::cout << "\n NL0:";
+                            for (int i = 0; i < neuronsInLayer0; i++)
+                            {
+                                std::cout << neuronsLayer0[i] << ".";
+                            }
+                            std::cout << "\n NL1:";
+                            for (int i = 0; i < neuronsInLayer1; i++)
+                            {
+                                std::cout << neuronsLayer1[i] << ".";
+                            }
+                            std::cout << "\n NL2:";
+                            for (int i = 0; i < neuronsInLayer2; i++)
+                            {
+                                std::cout << neuronsLayer2[i] << ".";
+                            }
+                            std::cout << "\n NL3:";
+                            for (int i = 0; i < neuronsInLayer3; i++)
+                            {
+                                std::cout << neuronsLayer3[i] << ".";
+                            }
+                            std::cout << "\n NL4:";
+                            for (int i = 0; i < neuronsInLayer4; i++)
+                            {
+                                std::cout << neuronsLayer4[i] << ".";
+                            }
+                            std::cout << "\n NL5:";
+                            for (int i = 0; i < neuronsInLayer5; i++)
+                            {
+                                std::cout << neuronsLayer5[i] << ".";
+                            }
+                            std::cout << "\n NL6:";
+                            for (int i = 0; i < neuronsInLayer6; i++)
+                            {
+                                std::cout << neuronsLayer6[i] << ".";
+                            }
+                            std::cout << "\n NL7:";
+                            for (int i = 0; i < neuronsInLayer7; i++)
+                            {
+                                std::cout << neuronsLayer7[i] << ".";
+                            }
+                            std::cout << "\n NL8:";
+                            for (int i = 0; i < neuronsInLayer8; i++)
+                            {
+                                std::cout << neuronsLayer8[i] << ".";
+                            }
+                            std::cout << "\n NL9:";
+                            for (int i = 0; i < neuronsInLayer9; i++)
+                            {
+                                std::cout << neuronsLayer9[i] << ".";
+                            }
+                            Sleep(60000);
+                            nnWhatMoveToPlay();
+                            nnCalculateCost(false, true, chessPositionsData[2][64], chessPositionsData[2][65], 11, 27);
+                            nnBackPropagation();
+                        }
+                        else
+                        {
+                            nnBoardToInput();
+                            nnThink();
+                            nnWhatMoveToPlay();
+                        }
+
                     }
                 }
                 else
                 {
                     if (isWhitesTurn == true)
                     {
-                        nnBoardToInput();
-                        nnThink();
-                        nnWhatMoveToPlay();
+                        if (isTestingON == false)
+                        {
+                            nnBoardToInput();
+                            nnThink();
+                            nnWhatMoveToPlay();
+                        }
                     }
                 }
             }
