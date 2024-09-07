@@ -8,7 +8,6 @@
 
 #pragma comment(lib, "D3D11.lib")
 
-
 //D311
 static ID3D11Device* g_pd3dDevice = nullptr;
 static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
@@ -3456,6 +3455,7 @@ static void isGameEnded()
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include "cstring";
 
 bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_srv, int* out_width, int* out_height)
 {
@@ -3504,59 +3504,20 @@ bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_sr
 }
 
 //Neural network functions and variables
-const int neuronsInLayer0 = 387;
-const int neuronsInLayer1 = 1024;
-const int neuronsInLayer2 = 4096;
-const int neuronsInLayer3 = 4096;
-const int neuronsInLayer4 = 4096;
-const int neuronsInLayer5 = 4096;
-const int neuronsInLayer6 = 2048;
-const int neuronsInLayer7 = 1024;
-const int neuronsInLayer8 = 512;
-const int neuronsInLayer9 = 128;
 
-int weightsLayer1[neuronsInLayer0][neuronsInLayer1];
-int weightsLayer2[neuronsInLayer1][neuronsInLayer2];
-int weightsLayer3[neuronsInLayer2][neuronsInLayer3];
-int weightsLayer4[neuronsInLayer3][neuronsInLayer4];
-int weightsLayer5[neuronsInLayer4][neuronsInLayer5];
-int weightsLayer6[neuronsInLayer5][neuronsInLayer6];
-int weightsLayer7[neuronsInLayer6][neuronsInLayer7];
-int weightsLayer8[neuronsInLayer7][neuronsInLayer8];
-int weightsLayer9[neuronsInLayer8][neuronsInLayer9];
+const int neuronsCount[10] =
+{
+    387, 1024, 4096, 4096, 4096,
+    4096, 2048, 1024, 512, 128
+};
 
-int neuronsLayer0[neuronsInLayer0]; //input
-int neuronsLayer1[neuronsInLayer1];
-int neuronsLayer2[neuronsInLayer2];
-int neuronsLayer3[neuronsInLayer3];
-int neuronsLayer4[neuronsInLayer4];
-int neuronsLayer5[neuronsInLayer5];
-int neuronsLayer6[neuronsInLayer6];
-int neuronsLayer7[neuronsInLayer7];
-int neuronsLayer8[neuronsInLayer8];
-int neuronsLayer9[neuronsInLayer9]; //output
+float weights[4096][4096][10];
 
-int biasesLayer1[neuronsInLayer1];
-int biasesLayer2[neuronsInLayer2];
-int biasesLayer3[neuronsInLayer3];
-int biasesLayer4[neuronsInLayer4];
-int biasesLayer5[neuronsInLayer5];
-int biasesLayer6[neuronsInLayer6];
-int biasesLayer7[neuronsInLayer7];
-int biasesLayer8[neuronsInLayer8];
-int biasesLayer9[neuronsInLayer9];
+float neurons[4096][10];
 
-int nodeValues1[neuronsInLayer1];
-int nodeValues2[neuronsInLayer2];
-int nodeValues3[neuronsInLayer3];
-int nodeValues4[neuronsInLayer4];
-int nodeValues5[neuronsInLayer5];
-int nodeValues6[neuronsInLayer6];
-int nodeValues7[neuronsInLayer7];
-int nodeValues8[neuronsInLayer8];
-int nodeValues9[neuronsInLayer9];
+int biases[4096][10];
 
-bool isTestingON = false;
+float nodeValues[4096][10];
 
 int chessPositionsData[100][66];
 int increment = 0;
@@ -3572,6 +3533,7 @@ int tempHowItsTo = 0;
 
 int temporaryChessPositionsData[66];
 //chessPositionsData[0][0] = 0 - Draw, 10 - Do like first, -10 - Do like second
+#pragma warning(disable : 4996)
 
 static void resetButton()
 {
@@ -3599,6 +3561,8 @@ static void resetButton()
     wasHumanFirstInData = false;
 }
 
+//Cost
+/*
 static void nnCalculateCost(bool draw,bool isBestMoveKnown, int howItsFrom, int howItsTo, int howShouldBeFrom, int howShouldBeTo)
 {
     if (draw == true)
@@ -3716,473 +3680,146 @@ static void nnCalculateCost(bool draw,bool isBestMoveKnown, int howItsFrom, int 
     }
 
 }
+*/
 
 static void nnLoad()
 {
-    std::ifstream w1("NeuralNetwork/weightsLayer1.txt");
-    std::ifstream w2("NeuralNetwork/weightsLayer2.txt");
-    std::ifstream w3("NeuralNetwork/weightsLayer3.txt");
-    std::ifstream w4("NeuralNetwork/weightsLayer4.txt");
-    std::ifstream w5("NeuralNetwork/weightsLayer5.txt");
-    std::ifstream w6("NeuralNetwork/weightsLayer6.txt");
-    std::ifstream w7("NeuralNetwork/weightsLayer7.txt");
-    std::ifstream w8("NeuralNetwork/weightsLayer8.txt");
-    std::ifstream w9("NeuralNetwork/weightsLayer9.txt");
+    char weight[] = "NeuralNetwork/weightsLayer";
+    char bias[] = "NeuralNetwork/biasesLayer";
+    char number[] = "0";
+    char txt[] = ".txt";
 
-    std::ifstream b1("NeuralNetwork/biasesLayer1.txt");
-    std::ifstream b2("NeuralNetwork/biasesLayer2.txt");
-    std::ifstream b3("NeuralNetwork/biasesLayer3.txt");
-    std::ifstream b4("NeuralNetwork/biasesLayer4.txt");
-    std::ifstream b5("NeuralNetwork/biasesLayer5.txt");
-    std::ifstream b6("NeuralNetwork/biasesLayer6.txt");
-    std::ifstream b7("NeuralNetwork/biasesLayer7.txt");
-    std::ifstream b8("NeuralNetwork/biasesLayer8.txt");
-    std::ifstream b9("NeuralNetwork/biasesLayer9.txt");
+    for (int i = 1; i < 10; i++)
+    {
+        char* name = new char[std::strlen(weight) + std::strlen(number) + std::strlen(txt) + 1];
+        std::strcpy(name, weight);
+        number[0] = i + '0';
+        std::strcat(name, number);
+        std::strcat(name, txt);
+        std::ifstream w(name);
 
-    for (int i = 0; i < neuronsInLayer0; i++)
-    {
-        for (int j = 0; j < neuronsInLayer1; j++)
+        for (int j = 0; j < neuronsCount[i - 1]; j++)
         {
-            w1 >> weightsLayer1[i][j];
-            weightsLayer1[i][j] -= 127;
-        }
-    }
-    w1.close();
-    for (int i = 0; i < neuronsInLayer1; i++)
-    {
-        for (int j = 0; j < neuronsInLayer2; j++)
-        {
-            w2 >> weightsLayer2[i][j];
-            weightsLayer2[i][j] -= 127;
-        }
-    }
-    w2.close();
-    for (int i = 0; i < neuronsInLayer2; i++)
-    {
-        for (int j = 0; j < neuronsInLayer3; j++)
-        {
-            w3 >> weightsLayer3[i][j];
-            weightsLayer3[i][j] -= 127;
-        }
-    }
-    w3.close();
-    for (int i = 0; i < neuronsInLayer3; i++)
-    {
-        for (int j = 0; j < neuronsInLayer4; j++)
-        {
-            w4 >> weightsLayer4[i][j];
-            weightsLayer4[i][j] -= 127;
-        }
-    }
-    w4.close();
-    for (int i = 0; i < neuronsInLayer4; i++)
-    {
-        for (int j = 0; j < neuronsInLayer5; j++)
-        {
-            w5 >> weightsLayer5[i][j];
-            weightsLayer5[i][j] -= 127;
-        }
-    }
-    w5.close();
-    for (int i = 0; i < neuronsInLayer5; i++)
-    {
-        for (int j = 0; j < neuronsInLayer6; j++)
-        {
-            w6 >> weightsLayer6[i][j];
-            weightsLayer6[i][j] -= 127;
-        }
-    }
-    w6.close();
-    for (int i = 0; i < neuronsInLayer6; i++)
-    {
-        for (int j = 0; j < neuronsInLayer7; j++)
-        {
-            w7 >> weightsLayer7[i][j];
-            weightsLayer7[i][j] -= 127;
-        }
-    }
-    w7.close();
-    for (int i = 0; i < neuronsInLayer7; i++)
-    {
-        for (int j = 0; j < neuronsInLayer8; j++)
-        {
-            w8 >> weightsLayer8[i][j];
-            weightsLayer8[i][j] -= 127;
-        }
-    }
-    w8.close();
-    for (int i = 0; i < neuronsInLayer8; i++)
-    {
-        for (int j = 0; j < neuronsInLayer9; j++)
-        {
-            w9 >> weightsLayer9[i][j];
-            weightsLayer9[i][j] -= 127;
-        }
-    }
-    w9.close();
+            for (int k = 0; k < neuronsCount[i]; k++)
+            {
+                w >> weights[j][k][i];
 
+            }
+        }
+        w.close();
+    }
 
-    for (int i = 0; i < neuronsInLayer1; i++)
+    for (int i = 1; i < 10; i++)
     {
-        b1 >> biasesLayer1[i];
-        biasesLayer1[i] -= 1000;
+        char* name = new char[std::strlen(bias) + std::strlen(number) + std::strlen(txt) + 1];
+        std::strcpy(name, bias);
+        number[0] = i + '0';
+        std::strcat(name, number);
+        std::strcat(name, txt);
+        std::ifstream b(name);
+
+        for (int j = 0; j < neuronsCount[i]; j++)
+        {
+            b >> biases[j][i];
+        }
+        b.close();
     }
-    b1.close();
-    for (int i = 0; i < neuronsInLayer2; i++)
-    {
-        b2 >> biasesLayer2[i];
-        biasesLayer2[i] -= 1000;
-    }
-    b2.close();
-    for (int i = 0; i < neuronsInLayer3; i++)
-    {
-        b3 >> biasesLayer3[i];
-        biasesLayer3[i] -= 1000;
-    }
-    b3.close();
-    for (int i = 0; i < neuronsInLayer4; i++)
-    {
-        b4 >> biasesLayer4[i];
-        biasesLayer4[i] -= 1000;
-    }
-    b4.close();
-    for (int i = 0; i < neuronsInLayer5; i++)
-    {
-        b5 >> biasesLayer5[i];
-        biasesLayer5[i] -= 1000;
-    }
-    b5.close();
-    for (int i = 0; i < neuronsInLayer6; i++)
-    {
-        b6 >> biasesLayer6[i];
-        biasesLayer6[i] -= 1000;
-    }
-    b6.close();
-    for (int i = 0; i < neuronsInLayer7; i++)
-    {
-        b7 >> biasesLayer7[i];
-        biasesLayer7[i] -= 1000;
-    }
-    b7.close();
-    for (int i = 0; i < neuronsInLayer8; i++)
-    {
-        b8 >> biasesLayer8[i];
-        biasesLayer8[i] -= 1000;
-    }
-    b8.close();
-    for (int i = 0; i < neuronsInLayer9; i++)
-    {
-        b9 >> biasesLayer9[i];
-        biasesLayer9[i] -= 1000;
-    }
-    b9.close();
 }
 
 static void nnWriteWithRandomValues()
 {
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> distr(0, 254);
-    std::uniform_int_distribution<> distrBias(0, 2000);
+    std::uniform_int_distribution<> distrWeight(0, 10000);
+    std::uniform_int_distribution<> distrBias(0, 20);
+    char weight[] = "NeuralNetwork/weightsLayer";
+    char bias[] = "NeuralNetwork/biasesLayer";
+    char number[] = "0";
+    char txt[] = ".txt";
 
-    std::ofstream w1("NeuralNetwork/weightsLayer1.txt");
-    std::ofstream w2("NeuralNetwork/weightsLayer2.txt");
-    std::ofstream w3("NeuralNetwork/weightsLayer3.txt");
-    std::ofstream w4("NeuralNetwork/weightsLayer4.txt");
-    std::ofstream w5("NeuralNetwork/weightsLayer5.txt");
-    std::ofstream w6("NeuralNetwork/weightsLayer6.txt");
-    std::ofstream w7("NeuralNetwork/weightsLayer7.txt");
-    std::ofstream w8("NeuralNetwork/weightsLayer8.txt");
-    std::ofstream w9("NeuralNetwork/weightsLayer9.txt");
+    for (int i = 1; i < 10; i++)
+    {
+        char* name = new char[std::strlen(weight) + std::strlen(number) + std::strlen(txt) + 1];
+        std::strcpy(name, weight);
+        number[0] = i + '0';
+        std::strcat(name, number);
+        std::strcat(name, txt);
+        std::ofstream w(name);
 
-    std::ofstream b1("NeuralNetwork/biasesLayer1.txt");
-    std::ofstream b2("NeuralNetwork/biasesLayer2.txt");
-    std::ofstream b3("NeuralNetwork/biasesLayer3.txt");
-    std::ofstream b4("NeuralNetwork/biasesLayer4.txt");
-    std::ofstream b5("NeuralNetwork/biasesLayer5.txt");
-    std::ofstream b6("NeuralNetwork/biasesLayer6.txt");
-    std::ofstream b7("NeuralNetwork/biasesLayer7.txt");
-    std::ofstream b8("NeuralNetwork/biasesLayer8.txt");
-    std::ofstream b9("NeuralNetwork/biasesLayer9.txt");
+        for (int j = 0; j < neuronsCount[i-1]; j++)
+        {
+            for (int k = 0; k < neuronsCount[i]; k++)
+            {
+                w << distrWeight(gen) << " ";
+            }
+            w << std::endl;
+        }
+        w.close();
+    }
 
-    for (int i = 0; i < neuronsInLayer0; i++)
+    for (int i = 1; i < 10; i++)
     {
-        for (int j = 0; j < neuronsInLayer1; j++)
-        {
-            w1 << distr(gen) << " ";
-        }
-        w1 << std::endl;
-    }
-    w1.close();
-    for (int i = 0; i < neuronsInLayer1; i++)
-    {
-        for (int j = 0; j < neuronsInLayer2; j++)
-        {
-            w2 << distr(gen) << " ";
-        }
-        w2 << std::endl;
-    }
-    w2.close();
-    for (int i = 0; i < neuronsInLayer2; i++)
-    {
-        for (int j = 0; j < neuronsInLayer3; j++)
-        {
-            w3 << distr(gen) << " ";
-        }
-        w3 << std::endl;
-    }
-    w3.close();
-    for (int i = 0; i < neuronsInLayer3; i++)
-    {
-        for (int j = 0; j < neuronsInLayer4; j++)
-        {
-            w4 << distr(gen) << " ";
-        }
-        w4 << std::endl;
-    }
-    w4.close();
-    for (int i = 0; i < neuronsInLayer4; i++)
-    {
-        for (int j = 0; j < neuronsInLayer5; j++)
-        {
-            w5 << distr(gen) << " ";
-        }
-        w5 << std::endl;
-    }
-    w5.close();
-    for (int i = 0; i < neuronsInLayer5; i++)
-    {
-        for (int j = 0; j < neuronsInLayer6; j++)
-        {
-            w6 << distr(gen) << " ";
-        }
-        w6 << std::endl;
-    }
-    w6.close();
-    for (int i = 0; i < neuronsInLayer6; i++)
-    {
-        for (int j = 0; j < neuronsInLayer7; j++)
-        {
-            w7 << distr(gen) << " ";
-        }
-        w7 << std::endl;
-    }
-    w7.close();
-    for (int i = 0; i < neuronsInLayer7; i++)
-    {
-        for (int j = 0; j < neuronsInLayer8; j++)
-        {
-            w8 << distr(gen) << " ";
-        }
-        w8 << std::endl;
-    }
-    w8.close();
-    for (int i = 0; i < neuronsInLayer8; i++)
-    {
-        for (int j = 0; j < neuronsInLayer9; j++)
-        {
-            w9 << distr(gen) << " ";
-        }
-        w9 << std::endl;
-    }
-    w9.close();
+        char* name = new char[std::strlen(bias) + std::strlen(number) + std::strlen(txt) + 1];
+        std::strcpy(name, bias);
+        number[0] = i + '0';
+        std::strcat(name, number);
+        std::strcat(name, txt);
+        std::ofstream b(name);
 
-
-    for (int i = 0; i < neuronsInLayer1; i++)
-    {
-        b1 << distrBias(gen) << " ";
+        for (int j = 0; j < neuronsCount[i]; j++)
+        {
+            b << distrBias(gen) << " ";
+        }
+        b.close();
     }
-    b1.close();
-    for (int i = 0; i < neuronsInLayer2; i++)
-    {
-        b2 << distrBias(gen) << " ";
-    }
-    b2.close();
-    for (int i = 0; i < neuronsInLayer3; i++)
-    {
-        b3 << distrBias(gen) << " ";
-    }
-    b3.close();
-    for (int i = 0; i < neuronsInLayer4; i++)
-    {
-        b4 << distrBias(gen) << " ";
-    }
-    b4.close();
-    for (int i = 0; i < neuronsInLayer5; i++)
-    {
-        b5 << distrBias(gen) << " ";
-    }
-    b5.close();
-    for (int i = 0; i < neuronsInLayer6; i++)
-    {
-        b6 << distrBias(gen) << " ";
-    }
-    b6.close();
-    for (int i = 0; i < neuronsInLayer7; i++)
-    {
-        b7 << distrBias(gen) << " ";
-    }
-    b7.close();
-    for (int i = 0; i < neuronsInLayer8; i++)
-    {
-        b8 << distrBias(gen) << " ";
-    }
-    b8.close();
-    for (int i = 0; i < neuronsInLayer9; i++)
-    {
-        b9 << distrBias(gen) << " ";
-    }
-    b9.close();
 }
 
 static void nnWrite()
 {
-    std::ofstream w1("NeuralNetwork/weightsLayer1.txt");
-    for (int i = 0; i < neuronsInLayer0; i++)
+    char weight[] = "NeuralNetwork/weightsLayer";
+    char bias[] = "NeuralNetwork/biasesLayer";
+    char number[] = "0";
+    char txt[] = ".txt";
+
+    for (int i = 1; i < 10; i++)
     {
-        for (int j = 0; j < neuronsInLayer1; j++)
+        char* name = new char[std::strlen(weight) + std::strlen(number) + std::strlen(txt) + 1];
+        std::strcpy(name, weight);
+        number[0] = i + '0';
+        std::strcat(name, number);
+        std::strcat(name, txt);
+        std::ofstream w(name);
+
+        for (int j = 0; j < neuronsCount[i - 1]; j++)
         {
-            w1 << weightsLayer1[i][j] + 127 << " ";
+            for (int k = 0; k < neuronsCount[i]; k++)
+            {
+                w << weights[j][k][i] << " ";
+            }
+            w << std::endl;
         }
-        w1 << std::endl;
+        w.close();
     }
-    w1.close();
-    std::ofstream w2("NeuralNetwork/weightsLayer2.txt");
-    for (int i = 0; i < neuronsInLayer1; i++)
+
+    for (int i = 1; i < 10; i++)
     {
-        for (int j = 0; j < neuronsInLayer2; j++)
+        char* name = new char[std::strlen(bias) + std::strlen(number) + std::strlen(txt) + 1];
+        std::strcpy(name, bias);
+        number[0] = i + '0';
+        std::strcat(name, number);
+        std::strcat(name, txt);
+        std::ofstream b(name);
+
+        for (int j = 0; j < neuronsCount[i]; j++)
         {
-            w2 << weightsLayer2[i][j] + 127 << " ";
+            b << biases[j][i] << " ";
         }
-        w2 << std::endl;
+        b.close();
     }
-    w2.close();
-    std::ofstream w3("NeuralNetwork/weightsLayer3.txt");
-    for (int i = 0; i < neuronsInLayer2; i++)
-    {
-        for (int j = 0; j < neuronsInLayer3; j++)
-        {
-            w3 << weightsLayer3[i][j] + 127 << " ";
-        }
-        w3 << std::endl;
-    }
-    w3.close();
-    std::ofstream w4("NeuralNetwork/weightsLayer4.txt");
-    for (int i = 0; i < neuronsInLayer3; i++)
-    {
-        for (int j = 0; j < neuronsInLayer4; j++)
-        {
-            w4 << weightsLayer4[i][j] + 127 << " ";
-        }
-        w4 << std::endl;
-    }
-    w4.close();
-    std::ofstream w5("NeuralNetwork/weightsLayer5.txt");
-    for (int i = 0; i < neuronsInLayer4; i++)
-    {
-        for (int j = 0; j < neuronsInLayer5; j++)
-        {
-            w5 << weightsLayer5[i][j] + 127 << " ";
-        }
-        w5 << std::endl;
-    }
-    w5.close();
-    std::ofstream w6("NeuralNetwork/weightsLayer6.txt");
-    for (int i = 0; i < neuronsInLayer5; i++)
-    {
-        for (int j = 0; j < neuronsInLayer6; j++)
-        {
-            w6 << weightsLayer6[i][j] + 127 << " ";
-        }
-        w6 << std::endl;
-    }
-    w6.close();
-    std::ofstream w7("NeuralNetwork/weightsLayer7.txt");
-    for (int i = 0; i < neuronsInLayer6; i++)
-    {
-        for (int j = 0; j < neuronsInLayer7; j++)
-        {
-            w7 << weightsLayer7[i][j] + 127 << " ";
-        }
-        w7 << std::endl;
-    }
-    w7.close();
-    std::ofstream w8("NeuralNetwork/weightsLayer8.txt");
-    for (int i = 0; i < neuronsInLayer7; i++)
-    {
-        for (int j = 0; j < neuronsInLayer8; j++)
-        {
-            w8 << weightsLayer8[i][j] + 127 << " ";
-        }
-        w8 << std::endl;
-    }
-    w8.close();
-    std::ofstream w9("NeuralNetwork/weightsLayer9.txt");
-    for (int i = 0; i < neuronsInLayer8; i++)
-    {
-        for (int j = 0; j < neuronsInLayer9; j++)
-        {
-            w9 << weightsLayer9[i][j] + 127 << " ";
-        }
-        w9 << std::endl;
-    }
-    w9.close();
-    std::ofstream b1("NeuralNetwork/biasesLayer1.txt");
-    std::ofstream b2("NeuralNetwork/biasesLayer2.txt");
-    std::ofstream b3("NeuralNetwork/biasesLayer3.txt");
-    std::ofstream b4("NeuralNetwork/biasesLayer4.txt");
-    std::ofstream b5("NeuralNetwork/biasesLayer5.txt");
-    std::ofstream b6("NeuralNetwork/biasesLayer6.txt");
-    std::ofstream b7("NeuralNetwork/biasesLayer7.txt");
-    std::ofstream b8("NeuralNetwork/biasesLayer8.txt");
-    std::ofstream b9("NeuralNetwork/biasesLayer9.txt");
-    for (int i = 0; i < neuronsInLayer1; i++)
-    {
-        b1 << biasesLayer1[i] + 1000 << " ";
-    }
-    b1.close();
-    for (int i = 0; i < neuronsInLayer2; i++)
-    {
-        b2 << biasesLayer2[i] + 1000 << " ";
-    }
-    b2.close();
-    for (int i = 0; i < neuronsInLayer3; i++)
-    {
-        b3 << biasesLayer3[i] + 1000 << " ";
-    }
-    b3.close();
-    for (int i = 0; i < neuronsInLayer4; i++)
-    {
-        b4 << biasesLayer4[i] + 1000 << " ";
-    }
-    b4.close();
-    for (int i = 0; i < neuronsInLayer5; i++)
-    {
-        b5 << biasesLayer5[i] + 1000 << " ";
-    }
-    b5.close();
-    for (int i = 0; i < neuronsInLayer6; i++)
-    {
-        b6 << biasesLayer6[i] + 1000 << " ";
-    }
-    b6.close();
-    for (int i = 0; i < neuronsInLayer7; i++)
-    {
-        b7 << biasesLayer7[i] + 1000 << " ";
-    }
-    b7.close();
-    for (int i = 0; i < neuronsInLayer8; i++)
-    {
-        b8 << biasesLayer8[i] + 1000 << " ";
-    }
-    b8.close();
-    for (int i = 0; i < neuronsInLayer9; i++)
-    {
-        b9 << biasesLayer9[i] + 1000 << " ";
-    }
-    b9.close();
 }
 
+//BoardToinput
+/*
 static void nnBoardToInput()
 {
     for (int i = 0; i < neuronsInLayer0; i++)
@@ -4353,7 +3990,10 @@ static void nnBoardToInput()
         }
     }
 }
+*/
 
+//Think
+/*
 static void nnThink()
 {
 
@@ -4538,7 +4178,10 @@ static void nnThink()
         neuronsLayer9[i] = temporaryNeuronValue;
     }
 }
+*/
 
+//WhatMoveToPlay
+/*
 static void nnWhatMoveToPlay()
 {
     if (isTestingON == true)
@@ -4957,7 +4600,10 @@ static void nnWhatMoveToPlay()
         tempHowItsTo = placeTo;
     }
 }
+*/
 
+//Backpropagation
+/*
 static void nnBackPropagation()
 {
     //W9 update
@@ -5422,7 +5068,10 @@ static void nnBackPropagation()
         }
     }
 }
+*/
 
+//BackpropagationHandler
+/*
 static void nnBackPropagationHandler()
 {
     bool isDataDraw = false;
@@ -5522,11 +5171,8 @@ static void nnBackPropagationHandler()
     }
     resetButton();
 }
+*/
 
-static void nnTESTING()
-{
-    isTestingON = true;
-}
 
 // Warstwa 9 Neuronow = 0; nie wiem czemu nie dziala
 // Cost jest albo -127 albo 1 
@@ -5534,7 +5180,6 @@ static void nnTESTING()
 //Cale NNThink do przerobienia
 //Jedyne co troche dziala to Warstwa 1, wartosci sa bliskie zeru +- 5
 //Wszystkie kolejne to same zera
-
 
 //Main
 int main(int, char**)
@@ -5596,8 +5241,8 @@ int main(int, char**)
     ID3D11ShaderResourceView* wr = NULL; LoadTextureFromFile("assets/wr.png", &wr, &my_image_width, &my_image_height);
     
     boardBeginWhite();
-    nnLoad();
-    nnTESTING();
+    nnWriteWithRandomValues();
+    //nnLoad();
 
     int waitForFrame = 0;
     //Main loop
@@ -5922,87 +5567,18 @@ int main(int, char**)
                 {
                     if (isWhitesTurn == false)
                     {
-                        if (isTestingON == true)
-                        {
-                            gameEnded = true;
-                            isBackPropagationRunning = true;
-                            nnBoardToInput();
-                            nnThink();
-
-                            std::cout << "\n NL0:";
-                            for (int i = 0; i < neuronsInLayer0; i++)
-                            {
-                                std::cout << neuronsLayer0[i] << ".";
-                            }
-                            std::cout << "\n NL1:";
-                            for (int i = 0; i < neuronsInLayer1; i++)
-                            {
-                                std::cout << neuronsLayer1[i] << ".";
-                            }
-                            std::cout << "\n NL2:";
-                            for (int i = 0; i < neuronsInLayer2; i++)
-                            {
-                                std::cout << neuronsLayer2[i] << ".";
-                            }
-                            std::cout << "\n NL3:";
-                            for (int i = 0; i < neuronsInLayer3; i++)
-                            {
-                                std::cout << neuronsLayer3[i] << ".";
-                            }
-                            std::cout << "\n NL4:";
-                            for (int i = 0; i < neuronsInLayer4; i++)
-                            {
-                                std::cout << neuronsLayer4[i] << ".";
-                            }
-                            std::cout << "\n NL5:";
-                            for (int i = 0; i < neuronsInLayer5; i++)
-                            {
-                                std::cout << neuronsLayer5[i] << ".";
-                            }
-                            std::cout << "\n NL6:";
-                            for (int i = 0; i < neuronsInLayer6; i++)
-                            {
-                                std::cout << neuronsLayer6[i] << ".";
-                            }
-                            std::cout << "\n NL7:";
-                            for (int i = 0; i < neuronsInLayer7; i++)
-                            {
-                                std::cout << neuronsLayer7[i] << ".";
-                            }
-                            std::cout << "\n NL8:";
-                            for (int i = 0; i < neuronsInLayer8; i++)
-                            {
-                                std::cout << neuronsLayer8[i] << ".";
-                            }
-                            std::cout << "\n NL9:";
-                            for (int i = 0; i < neuronsInLayer9; i++)
-                            {
-                                std::cout << neuronsLayer9[i] << ".";
-                            }
-                            Sleep(60000);
-                            nnWhatMoveToPlay();
-                            nnCalculateCost(false, true, chessPositionsData[2][64], chessPositionsData[2][65], 11, 27);
-                            nnBackPropagation();
-                        }
-                        else
-                        {
-                            nnBoardToInput();
-                            nnThink();
-                            nnWhatMoveToPlay();
-                        }
-
-                    }
+                        //nnBoardToInput();
+                        //nnThink();
+                        //nnWhatMoveToPlay();
+                    }   
                 }
                 else
                 {
                     if (isWhitesTurn == true)
                     {
-                        if (isTestingON == false)
-                        {
-                            nnBoardToInput();
-                            nnThink();
-                            nnWhatMoveToPlay();
-                        }
+                        //nnBoardToInput();
+                        //nnThink();
+                        //nnWhatMoveToPlay();
                     }
                 }
             }
