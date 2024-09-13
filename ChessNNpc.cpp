@@ -44,6 +44,9 @@ bool isChessSquareViableMove[8][8];
 bool isChessPieceSelected = false;
 int selectedPieceX = 0;
 int selectedPieceY = 0;
+
+
+
 bool isBoardFlipped = false;
 const int fenLength = 100;
 char FENinput[fenLength] = "";
@@ -110,9 +113,10 @@ int biases[4096][10];
 int nodeValues[4096][10];
 
 int chessPositionsData[100][66];
-int increment = 0;
+int chessPositionsDataInc = 0;
 bool wasHumanFirstInData = true;
-float learningRate = 0.000001f;
+float learningRate = 0.0000001f;
+float learnProgressSmoother = 1.0f;
 bool isBackPropagationRunning = false;
 int tempHowItsFrom = 0;
 int tempHowItsTo = 0;
@@ -123,7 +127,7 @@ int temporaryChessPositionsData[66];
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_srv, int* out_width, int* out_height)
+static bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_srv, int* out_width, int* out_height)
 {
     // Load from disk into a raw RGBA buffer
     int image_width = 0;
@@ -3210,147 +3214,6 @@ static void isGameEnded()
     resetIsChessSquareViableMove();
 }
 
-static void pieceMove(int Y, int X)
-{
-    int whatPieceToMove = chessBoard[selectedPieceY][selectedPieceX];
-    chessBoard[selectedPieceY][selectedPieceX] = 0;
-    chessBoard[Y][X] = whatPieceToMove;
-    if (isGameStarted == false) { isGameStarted = true; }
-
-    //Rook move while castling
-    if (whatPieceToMove == 100)
-    {
-        if (isWhitesTurn == true)
-        {
-            if (isWhiteKingCastlingPossible == true && Y == 0 && X == 1)
-            {
-                chessBoard[0][2] = 50;
-                chessBoard[0][0] = 0;
-            }
-            if (isWhiteQueenCastlingPossible == true && Y == 0 && X == 5)
-            {
-                chessBoard[0][4] = 50;
-                chessBoard[0][7] = 0;
-            }
-        }
-        else
-        {
-            if (isWhiteKingCastlingPossible == true && Y == 7 && X == 6)
-            {
-                chessBoard[7][5] = 50;
-                chessBoard[7][7] = 0;
-            }
-            if (isWhiteQueenCastlingPossible == true && Y == 7 && X == 2)
-            {
-                chessBoard[7][3] = 50;
-                chessBoard[7][0] = 0;
-            }
-        }
-    }
-    if (whatPieceToMove == 101)
-    {
-        if (isWhitesTurn == true)
-        {
-            if (isBlackKingCastlingPossible == true && Y == 7 && X == 1)
-            {
-                chessBoard[7][2] = 51;
-                chessBoard[7][0] = 0;
-            }
-            if (isBlackQueenCastlingPossible == true && Y == 7 && X == 5)
-            {
-                chessBoard[7][4] = 51;
-                chessBoard[7][7] = 0;
-            }
-        }
-        else
-        {
-            if (isBlackKingCastlingPossible == true && Y == 0 && X == 6)
-            {
-                chessBoard[0][5] = 51;
-                chessBoard[0][7] = 0;
-            }
-            if (isBlackQueenCastlingPossible == true && Y == 0 && X == 2)
-            {
-                chessBoard[0][3] = 51;
-                chessBoard[0][0] = 0;
-            }
-        }
-    }
-
-    //Remove possibility of castling
-    switch (whatPieceToMove)
-    {
-    default:
-        break;
-    case 100:
-        isWhiteKingCastlingPossible = false;
-        isWhiteQueenCastlingPossible = false;
-        break;
-    case 101:
-        isBlackKingCastlingPossible = false;
-        isBlackQueenCastlingPossible = false;
-        break;
-    case 50:
-        if (selectedPieceX == 7) { isWhiteKingCastlingPossible = false; }
-        if (selectedPieceX == 0) { isWhiteQueenCastlingPossible = false; }
-        break;
-    case 51:
-        if (selectedPieceX == 7) { isBlackKingCastlingPossible = false; }
-        if (selectedPieceX == 0) { isBlackQueenCastlingPossible = false; }
-        break;
-    }
-
-    //En Passant pawn capture
-    if (whatPieceToMove == 10)
-    {
-        if (isEnPassantForWhitePossible == true && Y == 2)
-        {
-            chessBoard[Y + 1][X] = 0;
-        }
-    }
-    if (whatPieceToMove == 11)
-    {
-        if (isEnPassantForBlackPossible == true && Y == 5)
-        {
-            chessBoard[Y - 1][X] = 0;
-        }
-    }
-
-    //isEnPassantPossible
-    if (whatPieceToMove == 10)
-    {
-        if (selectedPieceY == 6 && Y == 4)
-        {
-            isEnPassantForBlackPossible = true;
-            enPassantX = X;
-        }
-    }
-    else
-    {
-        isEnPassantForBlackPossible = false;
-    }
-    if (whatPieceToMove == 11)
-    {
-        if (selectedPieceY == 1 && Y == 3)
-        {
-            isEnPassantForWhitePossible = true;
-            enPassantX = X;
-        }
-    }
-    else
-    {
-        isEnPassantForWhitePossible = false;
-    }
-
-    if (isWhitesTurn == true) { isWhitesTurn = false; }
-    else { isWhitesTurn = true; }
-
-    resetIsChessSquareViableMove();
-    updatePawnToQueenPromotion();
-    updateIsKingInCheck();
-    isGameEnded();
-}
-
 static void resetButton()
 {
     isGameStarted = false;
@@ -3375,6 +3238,16 @@ static void resetButton()
     enPassantX = 0;
     moveNumber = 0;
     wasHumanFirstInData = false;
+
+    chessPositionsDataInc = 0;
+    for (int i = 0; i < 100; i++)
+    {
+        for (int j = 0; j < 66; j++)
+        {
+            chessPositionsData[i][j] = 0;
+        }
+    }
+
 }
 
 //Neural Network functions
@@ -3910,6 +3783,10 @@ static void nnWhatMoveToPlay()
         }
         else
         {
+            if (chessPositionsDataInc == 0)
+            {
+                wasHumanFirstInData = false;
+            }
             pieceMove(toY, toX);
         }
     }
@@ -3986,6 +3863,20 @@ static void nnCalculateLastLayerCost(bool isBestMoveKnown, int howItsFrom, int h
     }
 }
 
+static void nnChessBoardToData(int dataY, int dataX)
+{
+    for (int h = 0; h < 8; h++)
+    {
+        for (int w = 0; w < 8; w++)
+        {
+            chessPositionsData[h * 8 + w][chessPositionsDataInc] = chessBoard[h][w];
+        }
+    }
+    chessPositionsData[64][chessPositionsDataInc] = selectedPieceY * 8 + selectedPieceX;
+    chessPositionsData[65][chessPositionsDataInc] = dataY * 8 + dataX;
+    chessPositionsDataInc++;
+}
+
 static void nnBackPropagation()
 {
     for (int i = 9; i > 0; i--)
@@ -3995,7 +3886,7 @@ static void nnBackPropagation()
         {
             for (int w = 0; w < neuronsCount[i]; w++)
             {
-                float change = (nodeValues[w][9] * neurons[h][8] * learningRate * 1);
+                float change = (nodeValues[w][9] * neurons[h][8] * learningRate * learnProgressSmoother);
                 if (change > 1) { change = 1; }
                 if (change < -1) { change = -1; }
                 weights[h][w][i] += change;
@@ -4018,7 +3909,7 @@ static void nnBackPropagation()
         {
             for (int k = 0; k < neuronsCount[i]; k++)
             {
-                nodeValues[j][i - 1] += weights[j][k][i] * 1000 * nodeValues[j][i];               
+                nodeValues[j][i - 1] += weights[j][k][i] * 10000 * nodeValues[j][i];            
             }
         }
     }
@@ -4026,7 +3917,209 @@ static void nnBackPropagation()
 
 static void nnBackPropagationHandler()
 {
+    std::cout << "Neural network is learning\n";
+    int backPropagationInc = 0;
+    bool doLikeFirst = true;
 
+    if (wasHumanFirstInData == false && didHumanWin == true)
+    {
+        doLikeFirst = false;
+    }
+    if (wasHumanFirstInData == true && didHumanWin == false)
+    {
+        doLikeFirst = false;
+    }
+
+    isBackPropagationRunning = true;
+    if (isItDraw == true)
+    {
+        //Calculate average error from all positions in chess game
+    }
+    else
+    {
+        while (chessPositionsData[backPropagationInc][64] != 0 && chessPositionsData[backPropagationInc][65] != 0 && backPropagationInc < 100)
+        {
+            for (int h = 0; h < 8; h++)
+            {
+                for (int w = 0; w < 8; w++)
+                {
+                    chessBoard[h][w] = chessPositionsData[backPropagationInc][h * 8 + w];
+                }
+            }
+            nnBoardToInput();
+            nnForwardPropagation();
+            nnWhatMoveToPlay();
+            if (doLikeFirst == true)
+            {
+                if (backPropagationInc % 2 == 0)
+                {
+                    nnCalculateLastLayerCost(true, tempHowItsFrom, tempHowItsTo, chessPositionsData[backPropagationInc][64], chessPositionsData[backPropagationInc][65]);
+                }
+                else
+                {
+                    nnCalculateLastLayerCost(false, tempHowItsFrom, tempHowItsTo, 0, 0);
+                }
+            }
+            else
+            {
+                if (backPropagationInc % 2 == 1)
+                {
+                    nnCalculateLastLayerCost(true, tempHowItsFrom, tempHowItsTo, chessPositionsData[backPropagationInc][64], chessPositionsData[backPropagationInc][65]);
+                }
+                else
+                {
+                    nnCalculateLastLayerCost(false, tempHowItsFrom, tempHowItsTo, 0, 0);
+                }
+            }
+
+            nnBackPropagation();
+
+        }
+    }
+    isBackPropagationRunning = false;
+    resetButton();
+}
+
+static void pieceMove(int Y, int X)
+{
+    int whatPieceToMove = chessBoard[selectedPieceY][selectedPieceX];
+    chessBoard[selectedPieceY][selectedPieceX] = 0;
+    chessBoard[Y][X] = whatPieceToMove;
+    if (isGameStarted == false) { isGameStarted = true; }
+
+    //Rook move while castling
+    if (whatPieceToMove == 100)
+    {
+        if (isWhitesTurn == true)
+        {
+            if (isWhiteKingCastlingPossible == true && Y == 0 && X == 1)
+            {
+                chessBoard[0][2] = 50;
+                chessBoard[0][0] = 0;
+            }
+            if (isWhiteQueenCastlingPossible == true && Y == 0 && X == 5)
+            {
+                chessBoard[0][4] = 50;
+                chessBoard[0][7] = 0;
+            }
+        }
+        else
+        {
+            if (isWhiteKingCastlingPossible == true && Y == 7 && X == 6)
+            {
+                chessBoard[7][5] = 50;
+                chessBoard[7][7] = 0;
+            }
+            if (isWhiteQueenCastlingPossible == true && Y == 7 && X == 2)
+            {
+                chessBoard[7][3] = 50;
+                chessBoard[7][0] = 0;
+            }
+        }
+    }
+    if (whatPieceToMove == 101)
+    {
+        if (isWhitesTurn == true)
+        {
+            if (isBlackKingCastlingPossible == true && Y == 7 && X == 1)
+            {
+                chessBoard[7][2] = 51;
+                chessBoard[7][0] = 0;
+            }
+            if (isBlackQueenCastlingPossible == true && Y == 7 && X == 5)
+            {
+                chessBoard[7][4] = 51;
+                chessBoard[7][7] = 0;
+            }
+        }
+        else
+        {
+            if (isBlackKingCastlingPossible == true && Y == 0 && X == 6)
+            {
+                chessBoard[0][5] = 51;
+                chessBoard[0][7] = 0;
+            }
+            if (isBlackQueenCastlingPossible == true && Y == 0 && X == 2)
+            {
+                chessBoard[0][3] = 51;
+                chessBoard[0][0] = 0;
+            }
+        }
+    }
+
+    //Remove possibility of castling
+    switch (whatPieceToMove)
+    {
+    default:
+        break;
+    case 100:
+        isWhiteKingCastlingPossible = false;
+        isWhiteQueenCastlingPossible = false;
+        break;
+    case 101:
+        isBlackKingCastlingPossible = false;
+        isBlackQueenCastlingPossible = false;
+        break;
+    case 50:
+        if (selectedPieceX == 7) { isWhiteKingCastlingPossible = false; }
+        if (selectedPieceX == 0) { isWhiteQueenCastlingPossible = false; }
+        break;
+    case 51:
+        if (selectedPieceX == 7) { isBlackKingCastlingPossible = false; }
+        if (selectedPieceX == 0) { isBlackQueenCastlingPossible = false; }
+        break;
+    }
+
+    //En Passant pawn capture
+    if (whatPieceToMove == 10)
+    {
+        if (isEnPassantForWhitePossible == true && Y == 2)
+        {
+            chessBoard[Y + 1][X] = 0;
+        }
+    }
+    if (whatPieceToMove == 11)
+    {
+        if (isEnPassantForBlackPossible == true && Y == 5)
+        {
+            chessBoard[Y - 1][X] = 0;
+        }
+    }
+
+    //isEnPassantPossible
+    if (whatPieceToMove == 10)
+    {
+        if (selectedPieceY == 6 && Y == 4)
+        {
+            isEnPassantForBlackPossible = true;
+            enPassantX = X;
+        }
+    }
+    else
+    {
+        isEnPassantForBlackPossible = false;
+    }
+    if (whatPieceToMove == 11)
+    {
+        if (selectedPieceY == 1 && Y == 3)
+        {
+            isEnPassantForWhitePossible = true;
+            enPassantX = X;
+        }
+    }
+    else
+    {
+        isEnPassantForWhitePossible = false;
+    }
+
+    if (isWhitesTurn == true) { isWhitesTurn = false; }
+    else { isWhitesTurn = true; }
+
+    nnChessBoardToData(Y, X);
+    resetIsChessSquareViableMove();
+    updatePawnToQueenPromotion();
+    updateIsKingInCheck();
+    isGameEnded();
 }
 
 //BackpropagationHandler
@@ -4192,18 +4285,19 @@ int main(int, char**)
     ID3D11ShaderResourceView* wr = NULL; LoadTextureFromFile("assets/wr.png", &wr, &my_image_width, &my_image_height);
     
     boardBeginWhite();
+    std::cout << "App is loading files. ~1.5m\n";
     nnLoad();
-    selectedPieceY = 6;
-    selectedPieceX = 3;
-    pieceMove(4, 3);
-    nnBoardToInput();
-    nnForwardPropagation();
+    //selectedPieceY = 6;
+    //selectedPieceX = 3;
+    //pieceMove(4, 3);
+    //nnBoardToInput();
+    //nnForwardPropagation();
 
-    isBackPropagationRunning = true;
-    nnWhatMoveToPlay();
-    nnCalculateLastLayerCost(true, tempHowItsFrom, tempHowItsTo, 11, 27);
-    nnBackPropagation();
-    isBackPropagationRunning = false;
+    //isBackPropagationRunning = true;
+    //nnWhatMoveToPlay();
+    //nnCalculateLastLayerCost(true, tempHowItsFrom, tempHowItsTo, 11, 27);
+    //nnBackPropagation();
+    //isBackPropagationRunning = false;
 
     int waitForFrame = 0;
     //Main loop
@@ -4225,7 +4319,8 @@ int main(int, char**)
         }
         if (done)
         {
-            //nnWrite();
+            std::cout << "Wait for app to write everything to files. ~1.5m\n";
+            nnWrite();
             break;
         }
         //Handle window being minimized or screen locked
@@ -4497,36 +4592,7 @@ int main(int, char**)
         //Backpropagation after game's end
         if (gameEnded == true)
         {
-            if (isItDraw == true)
-            {
-                chessPositionsData[0][0] = 0;
-            }
-            else if (wasHumanFirstInData == true)
-            {
-                if (didHumanWin == true)
-                {
-                    chessPositionsData[0][0] = 10;
-                }
-                else
-                {
-                    chessPositionsData[0][0] = -10;
-                }
-            }
-            else if (wasHumanFirstInData == false)
-            {
-                if (didHumanWin == true)
-                {
-                    chessPositionsData[0][0] = -10;
-                }
-                else
-                {
-                    chessPositionsData[0][0] = 10;
-                }
-            }
-
-            //isBackPropagationRunning = true;
-            //nnBackPropagationHandler();
-            //isBackPropagationRunning = false;
+            nnBackPropagationHandler();
         }
 
         //AI turn
@@ -4562,6 +4628,10 @@ int main(int, char**)
 
                 if (isChessPieceSelected == true && isChessSquareViableMove[Y][X] == true)
                 {
+                    if (chessPositionsDataInc == 0)
+                    {
+                        wasHumanFirstInData = true;
+                    }
                     pieceMove(Y, X);
                 }
 
