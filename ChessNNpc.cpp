@@ -115,17 +115,20 @@ int nodeValues[4096][10];
 int chessPositionsData[100][66];
 int chessPositionsDataInc = 0;
 bool wasHumanFirstInData = true;
-float learningRate = 0.0000001f;
+float learningRate = 0.000001f;
 float learnProgressSmoother = 1.0f;
 bool isBackPropagationRunning = false;
 int tempHowItsFrom = 0;
 int tempHowItsTo = 0;
+int moveNumberForNN = 0;
 
-int temporaryChessPositionsData[66];
+//int temporaryChessPositionsData[66];
 //chessPositionsData[0][0] = 0 - Draw, 10 - Do like first, -10 - Do like second
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+
+static void pieceMove(int Y, int X);
 
 static bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_srv, int* out_width, int* out_height)
 {
@@ -3869,11 +3872,11 @@ static void nnChessBoardToData(int dataY, int dataX)
     {
         for (int w = 0; w < 8; w++)
         {
-            chessPositionsData[h * 8 + w][chessPositionsDataInc] = chessBoard[h][w];
+            chessPositionsData[chessPositionsDataInc][h*8+w] = chessBoard[h][w];
         }
     }
-    chessPositionsData[64][chessPositionsDataInc] = selectedPieceY * 8 + selectedPieceX;
-    chessPositionsData[65][chessPositionsDataInc] = dataY * 8 + dataX;
+    chessPositionsData[chessPositionsDataInc][64] = selectedPieceY * 8 + selectedPieceX;
+    chessPositionsData[chessPositionsDataInc][65] = dataY * 8 + dataX;
     chessPositionsDataInc++;
 }
 
@@ -3886,7 +3889,7 @@ static void nnBackPropagation()
         {
             for (int w = 0; w < neuronsCount[i]; w++)
             {
-                float change = (nodeValues[w][9] * neurons[h][8] * learningRate * learnProgressSmoother);
+                float change = (nodeValues[w][9] * neurons[h][8] * learningRate * learnProgressSmoother);// *((moveNumberForNN) / 10) + 1);
                 if (change > 1) { change = 1; }
                 if (change < -1) { change = -1; }
                 weights[h][w][i] += change;
@@ -3918,7 +3921,6 @@ static void nnBackPropagation()
 static void nnBackPropagationHandler()
 {
     std::cout << "Neural network is learning\n";
-    int backPropagationInc = 0;
     bool doLikeFirst = true;
 
     if (wasHumanFirstInData == false && didHumanWin == true)
@@ -3937,13 +3939,14 @@ static void nnBackPropagationHandler()
     }
     else
     {
-        while (chessPositionsData[backPropagationInc][64] != 0 && chessPositionsData[backPropagationInc][65] != 0 && backPropagationInc < 100)
+        for (int i = 0; i < chessPositionsDataInc-1; i++)
         {
+            moveNumberForNN = i;
             for (int h = 0; h < 8; h++)
             {
                 for (int w = 0; w < 8; w++)
                 {
-                    chessBoard[h][w] = chessPositionsData[backPropagationInc][h * 8 + w];
+                    chessBoard[h][w] = chessPositionsData[i][h * 8 + w];
                 }
             }
             nnBoardToInput();
@@ -3951,29 +3954,27 @@ static void nnBackPropagationHandler()
             nnWhatMoveToPlay();
             if (doLikeFirst == true)
             {
-                if (backPropagationInc % 2 == 0)
-                {
-                    nnCalculateLastLayerCost(true, tempHowItsFrom, tempHowItsTo, chessPositionsData[backPropagationInc][64], chessPositionsData[backPropagationInc][65]);
-                }
+                if (i % 2 == 0)
+                    {
+                        nnCalculateLastLayerCost(true, tempHowItsFrom, tempHowItsTo, chessPositionsData[i][64], chessPositionsData[i][65]);
+                    }
                 else
-                {
-                    nnCalculateLastLayerCost(false, tempHowItsFrom, tempHowItsTo, 0, 0);
-                }
+                    {
+                        nnCalculateLastLayerCost(false, tempHowItsFrom, tempHowItsTo, 0, 0);
+                    }
             }
             else
             {
-                if (backPropagationInc % 2 == 1)
-                {
-                    nnCalculateLastLayerCost(true, tempHowItsFrom, tempHowItsTo, chessPositionsData[backPropagationInc][64], chessPositionsData[backPropagationInc][65]);
-                }
+                if (i % 2 == 1)
+                    {
+                        nnCalculateLastLayerCost(true, tempHowItsFrom, tempHowItsTo, chessPositionsData[i][64], chessPositionsData[i][65]);
+                    }
                 else
-                {
-                    nnCalculateLastLayerCost(false, tempHowItsFrom, tempHowItsTo, 0, 0);
-                }
+                    {
+                        nnCalculateLastLayerCost(false, tempHowItsFrom, tempHowItsTo, 0, 0);
+                    }
             }
-
             nnBackPropagation();
-
         }
     }
     isBackPropagationRunning = false;
@@ -3982,6 +3983,7 @@ static void nnBackPropagationHandler()
 
 static void pieceMove(int Y, int X)
 {
+    moveNumber++;
     int whatPieceToMove = chessBoard[selectedPieceY][selectedPieceX];
     chessBoard[selectedPieceY][selectedPieceX] = 0;
     chessBoard[Y][X] = whatPieceToMove;
@@ -4287,17 +4289,6 @@ int main(int, char**)
     boardBeginWhite();
     std::cout << "App is loading files. ~1.5m\n";
     nnLoad();
-    //selectedPieceY = 6;
-    //selectedPieceX = 3;
-    //pieceMove(4, 3);
-    //nnBoardToInput();
-    //nnForwardPropagation();
-
-    //isBackPropagationRunning = true;
-    //nnWhatMoveToPlay();
-    //nnCalculateLastLayerCost(true, tempHowItsFrom, tempHowItsTo, 11, 27);
-    //nnBackPropagation();
-    //isBackPropagationRunning = false;
 
     int waitForFrame = 0;
     //Main loop
@@ -4567,6 +4558,33 @@ int main(int, char**)
             {
                 ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY + 485));
                 ImGui::Text("You are playing with black.");
+            }
+
+            if (moveNumber >= 99)
+            {
+                gameEnded = true;
+                if (isWhitesTurn == true)
+                {
+                    if (isWhiteKingInCheck == true)
+                    {
+                        didHumanWin = false;
+                    }
+                    else
+                    {
+                        isItDraw = true;
+                    }
+                }
+                else
+                {
+                    if (isBlackKingInCheck == true)
+                    {
+                        didHumanWin = true;
+                    }
+                    else
+                    {
+                        isItDraw = true;
+                    }
+                }
             }
 
             if (gameEnded == true)
