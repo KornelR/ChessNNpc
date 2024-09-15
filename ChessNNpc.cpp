@@ -11,6 +11,10 @@
 #pragma comment(lib, "D3D11.lib")
 #pragma warning(disable : 4996)
 
+//todo
+//error while castling in check : rook is not moving
+//flip board
+
 //D311
 static ID3D11Device* g_pd3dDevice = nullptr;
 static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
@@ -44,8 +48,6 @@ bool isChessSquareViableMove[8][8];
 bool isChessPieceSelected = false;
 int selectedPieceX = 0;
 int selectedPieceY = 0;
-
-
 
 bool isBoardFlipped = false;
 const int fenLength = 100;
@@ -111,16 +113,22 @@ int copyOfLastLayerNeurons[128];
 int biases[4096][10];
 
 int nodeValues[4096][10];
+int averageNodeValues[100][128];
 
 int chessPositionsData[100][66];
 int chessPositionsDataInc = 0;
 bool wasHumanFirstInData = true;
-float learningRate = 0.000001f;
+float learningRate = 0.0000005f;
 float learnProgressSmoother = 1.0f;
 bool isBackPropagationRunning = false;
 int tempHowItsFrom = 0;
 int tempHowItsTo = 0;
 int moveNumberForNN = 0;
+int numberOfGamesPlayed = 20;
+float additionalMultiplier = 1.0f;
+bool isAdditionalMultiplierON = false;
+bool isNNLearningTurnedON = true;
+bool isAILearningByItself = false;
 
 //int temporaryChessPositionsData[66];
 //chessPositionsData[0][0] = 0 - Draw, 10 - Do like first, -10 - Do like second
@@ -3135,7 +3143,7 @@ static void isGameEnded()
 {
     isAnyMoveViable = false;
     isChessPieceSelected = true;
-    if (moveNumber >= 100)
+    if (moveNumber >= 98)
     {
         gameEnded = true;
     }
@@ -3889,7 +3897,7 @@ static void nnBackPropagation()
         {
             for (int w = 0; w < neuronsCount[i]; w++)
             {
-                float change = (nodeValues[w][9] * neurons[h][8] * learningRate * learnProgressSmoother);// *((moveNumberForNN) / 10) + 1);
+                float change = (nodeValues[w][9] * neurons[h][8] * learningRate * learnProgressSmoother * additionalMultiplier * ((moveNumberForNN) / 5) + 1);
                 if (change > 1) { change = 1; }
                 if (change < -1) { change = -1; }
                 weights[h][w][i] += change;
@@ -3920,7 +3928,6 @@ static void nnBackPropagation()
 
 static void nnBackPropagationHandler()
 {
-    std::cout << "Neural network is learning\n";
     bool doLikeFirst = true;
 
     if (wasHumanFirstInData == false && didHumanWin == true)
@@ -3931,11 +3938,61 @@ static void nnBackPropagationHandler()
     {
         doLikeFirst = false;
     }
-
     isBackPropagationRunning = true;
+
     if (isItDraw == true)
     {
-        //Calculate average error from all positions in chess game
+        if (numberOfGamesPlayed < 100)
+        {
+            for (int i = 0; i < chessPositionsDataInc - 1; i++)
+            {
+                moveNumberForNN = i;
+                for (int h = 0; h < 8; h++)
+                {
+                    for (int w = 0; w < 8; w++)
+                    {
+                        chessBoard[h][w] = chessPositionsData[i][h * 8 + w];
+                    }
+                }
+                nnBoardToInput();
+                nnForwardPropagation();
+                nnWhatMoveToPlay();
+                nnCalculateLastLayerCost(false, tempHowItsFrom, tempHowItsTo, 0, 0);
+                nnBackPropagation();
+            }
+        }
+        else
+        {        //Calculate average error from all positions in chess game
+            for (int i = 0; i < chessPositionsDataInc - 1; i++)
+            {
+                moveNumberForNN = i;
+                for (int h = 0; h < 8; h++)
+                {
+                    for (int w = 0; w < 8; w++)
+                    {
+                        chessBoard[h][w] = chessPositionsData[i][h * 8 + w];
+                    }
+                }
+                nnBoardToInput();
+                nnForwardPropagation();
+                nnWhatMoveToPlay();
+                nnCalculateLastLayerCost(false, tempHowItsFrom, tempHowItsTo, 0, 0);
+                for (int j = 0; j < 128; j++)
+                {
+                    averageNodeValues[i][j] = nodeValues[j][9];
+                }               
+            }
+            for (int i = 0; i < 128; i++)
+            {
+                long int average = 0;
+                for (int j = 0; j < chessPositionsDataInc - 1; j++)
+                {                 
+                    average += averageNodeValues[j][i];
+                }
+                nodeValues[i][9] = average / (chessPositionsDataInc - 1);
+            }
+            nnBackPropagation();
+        }
     }
     else
     {
@@ -4287,7 +4344,6 @@ int main(int, char**)
     ID3D11ShaderResourceView* wr = NULL; LoadTextureFromFile("assets/wr.png", &wr, &my_image_width, &my_image_height);
     
     boardBeginWhite();
-    std::cout << "App is loading files. ~1.5m\n";
     nnLoad();
 
     int waitForFrame = 0;
@@ -4310,7 +4366,6 @@ int main(int, char**)
         }
         if (done)
         {
-            std::cout << "Wait for app to write everything to files. ~1.5m\n";
             nnWrite();
             break;
         }
@@ -4504,6 +4559,27 @@ int main(int, char**)
                 }
             }
 
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY));
+            ImGui::Checkbox("BackPropagation", &isNNLearningTurnedON);
+
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY + 30));
+            ImGui::Checkbox("AI Self Learning", &isAILearningByItself);
+
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 40, starterBoardPosY + 60));
+            ImGui::Text("Number of Games:");
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 180, starterBoardPosY + 60));
+            ImGui::Text("%d", numberOfGamesPlayed);
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 40, starterBoardPosY + 90));
+            ImGui::Checkbox("Harder NN learning", &isAdditionalMultiplierON);
+
+            if (isAdditionalMultiplierON == true)
+            {
+                additionalMultiplier = 10.0f;
+            }
+            else
+            {
+                additionalMultiplier = 1.0f;
+            }
 
             ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 120));
             ImGui::Checkbox("Start AI from here", &isAITurnedOn);
@@ -4560,33 +4636,6 @@ int main(int, char**)
                 ImGui::Text("You are playing with black.");
             }
 
-            if (moveNumber >= 99)
-            {
-                gameEnded = true;
-                if (isWhitesTurn == true)
-                {
-                    if (isWhiteKingInCheck == true)
-                    {
-                        didHumanWin = false;
-                    }
-                    else
-                    {
-                        isItDraw = true;
-                    }
-                }
-                else
-                {
-                    if (isBlackKingInCheck == true)
-                    {
-                        didHumanWin = true;
-                    }
-                    else
-                    {
-                        isItDraw = true;
-                    }
-                }
-            }
-
             if (gameEnded == true)
             {
                 ImGui::SetCursorPos(ImVec2(my_image_width * 8 + starterBoardPosX + 30, my_image_height * 4 + starterBoardPosY - 7));
@@ -4610,11 +4659,28 @@ int main(int, char**)
         //Backpropagation after game's end
         if (gameEnded == true)
         {
-            nnBackPropagationHandler();
+            numberOfGamesPlayed++;
+            if (isNNLearningTurnedON == true)
+            {
+                nnBackPropagationHandler();
+            }
+            else
+            {
+                resetButton();
+            }
         }
 
+        //AI self learning
+        if (gameEnded == false && isAILearningByItself == true)
+        {
+            nnBoardToInput();
+            nnForwardPropagation();
+            nnWhatMoveToPlay();
+        }
+
+
         //AI turn
-        if (gameEnded == false)
+        if (gameEnded == false && isAILearningByItself == false)
         {
             if (isAITurnedOn == true && waitForFrame > 5)
             {
