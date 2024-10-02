@@ -79,6 +79,7 @@ int hypotheticalBoardForBlackKing[8][8];
 bool isMoveHypothetical = false;
 int moveNumber = 0;
 const int moveLimit = 99;
+int lastMoves[12][2];
 int maxIntValue = 2147483647;
 
 //White 0 ;=; Black 1
@@ -132,7 +133,7 @@ bool isAdditionalMultiplierON = false;
 bool isNNLearningTurnedON = true;
 bool isAILearningByItself = false;
 
-int numberOfGamesPlayed = 0;
+int numberOfGamesPlayed = 20;
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -3148,6 +3149,18 @@ static void isGameEnded()
     {
         gameEnded = true;
     }
+
+    //repetition move draw
+    if (lastMoves[0][0] == lastMoves[4][0] && lastMoves[4][0] == lastMoves[8][0] && lastMoves[0][1] == lastMoves[4][1] && lastMoves[4][1] == lastMoves[8][1])
+    {
+        if (lastMoves[1][0] == lastMoves[5][0] && lastMoves[5][0] == lastMoves[9][0] && lastMoves[1][1] == lastMoves[5][1] && lastMoves[5][1] == lastMoves[9][1])
+        {
+            gameEnded = true;
+            isItDraw = true;
+        }
+    }
+
+
     if (gameEnded == false)
     {
         for (int h = 0; h < 8; h++)
@@ -3267,6 +3280,12 @@ static void resetButton()
         {
             lastLayerNeuronsData[i][j] = 0;
         }
+    }
+
+    for (int i = 0; i < 12; i++)
+    {
+        lastMoves[i][0] = i;
+        lastMoves[i][1] = i;
     }
 }
 
@@ -3883,23 +3902,11 @@ static void nnCalculateLastLayerCost(bool isBestMoveKnown, int howItsFrom, int h
             }
         }
     }
-
+    
     //Multiplying by 2; partial derivative
     for (int i = 0; i < 128; i++)
     {
-        //nodeValues[i][9] /= 1000;
-        if (nodeValues[i][9] > 500)
-        {
-            nodeValues[i][9] = 1000;
-        }
-        else if (nodeValues[i][9] < -500)
-        {
-            nodeValues[i][9] = -1000;
-        }
-        else
-        {
-            nodeValues[i][9] *= 2;
-        }
+        nodeValues[i][9] *= 2;
     }
 }
 
@@ -3930,10 +3937,10 @@ static void nnBackPropagation()
         //Weight update
         for (int h = 0; h < neuronsCount[i - 1]; h++)
         {
-            float totalchange = 0.0f;
             for (int w = 0; w < neuronsCount[i]; w++)
-            {                
-                float change = nodeValues[w][9] * neurons[h][8];
+            {     
+                if (nodeValues[w][i] == 0) { continue; }
+                float change = nodeValues[w][i] * neurons[h][i-1];
                 change *= ((moveNumberForNN / 5) + 1);
                 change *= learningRate;
                 change *= learnProgressSmoother;
@@ -3941,7 +3948,6 @@ static void nnBackPropagation()
 
                 if (change > 1) { change = 1; }
                 if (change < -1) { change = -1; }
-                totalchange += change;
                 weights[h][w][i] += change;
                 if (weights[h][w][i] > weightRange) { weights[h][w][i] = weightRange; }
                 if (weights[h][w][i] < -weightRange) { weights[h][w][i] = -weightRange; }
@@ -3950,6 +3956,7 @@ static void nnBackPropagation()
         //Bias update
         for (int j = 0; j < neuronsCount[i]; j++)
         {
+            if (nodeValues[j][i] == 0) { continue; }
             int change = nodeValues[j][i];
             if (change > 100) { change = 100; }
             if (change < -100) { change = -100; }
@@ -3962,8 +3969,9 @@ static void nnBackPropagation()
         {
             for (int k = 0; k < neuronsCount[i]; k++)
             {
-                nodeValues[j][i - 1] += weights[j][k][i] * nodeValues[j][i];
-                nodeValues[j][i - 1] /= 1000;
+                float nodeChange = weights[j][k][i];
+                nodeChange *= nodeValues[j][i];
+                nodeChange *= 1000;               
             }
         }
     }
@@ -4072,6 +4080,16 @@ static void pieceMove(int Y, int X)
     int whatPieceToMove = chessBoard[selectedPieceY][selectedPieceX];
     chessBoard[selectedPieceY][selectedPieceX] = 0;
     chessBoard[Y][X] = whatPieceToMove;
+
+    //Last moves update
+    for (int i = 11; i > 0; i--)
+    {
+        lastMoves[i][0] = lastMoves[i - 1][0];
+        lastMoves[i][1] = lastMoves[i - 1][1];
+    }
+    lastMoves[0][0] = (selectedPieceY * 8) + selectedPieceX;
+    lastMoves[0][1] = (Y * 8) + X;
+
     if (isGameStarted == false) { isGameStarted = true; }
 
     //Rook move while castling
@@ -4268,7 +4286,7 @@ int main(int, char**)
     ID3D11ShaderResourceView* wq = NULL; LoadTextureFromFile("assets/wq.png", &wq, &my_image_width, &my_image_height);
     ID3D11ShaderResourceView* wr = NULL; LoadTextureFromFile("assets/wr.png", &wr, &my_image_width, &my_image_height);
     
-    boardBeginWhite();
+    resetButton();
     nnLoad();
 
 
