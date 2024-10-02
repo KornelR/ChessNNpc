@@ -10,15 +10,11 @@
 #include <string>
 #pragma comment(lib, "D3D11.lib")
 #pragma warning(disable : 4996)
+#pragma warning(disable : 6386)
 
-//todo
-//error while castling in check : rook is not moving
-//flip board
-//whatmovetoplay winne
-//chesspositionsdata czasem chce robic ruch z tego samego miejsca
-//rework chess app...
-
-
+//TODO
+//if there is a few highest output neurons and they are the same choose random, not first
+//weights are at max. WHY? idk
 
 //D311
 static ID3D11Device* g_pd3dDevice = nullptr;
@@ -72,6 +68,7 @@ bool isEnPassantForWhitePossible = false;
 bool isEnPassantForBlackPossible = false;
 int enPassantX = 0;
 
+int waitForFrame = 0;
 bool dangerSquaresForWhiteKing[8][8];
 bool isWhiteKingInCheck = false;
 bool dangerSquaresForBlackKing[8][8];
@@ -81,6 +78,7 @@ int hypotheticalBoardForWhiteKing[8][8];
 int hypotheticalBoardForBlackKing[8][8];
 bool isMoveHypothetical = false;
 int moveNumber = 0;
+const int moveLimit = 99;
 int maxIntValue = 2147483647;
 
 //White 0 ;=; Black 1
@@ -107,38 +105,34 @@ const int neuronsCount[10] =
     4096, 2048, 1024, 512, 128
 };
 
-const int weightRange = 5; // e.g.  -5.000 -- +5.000
-const int biasRange = 10; // e.g. -10 -- +10;
+const int weightRange = 1000; // e.g.  -x.000 -- +x.000
+const int biasRange = 1000; // e.g. -x -- +x;
 
 float weights[4096][4096][10];
-float copyOfWeights[4096][4096][10];
 
 double neurons[4096][10];
+//do usuniecia copyOfetc.
 int copyOfLastLayerNeurons[128];
 
 int biases[4096][10];
-int copyOfBiases[4096][10];
 
 int nodeValues[4096][10];
-int averageNodeValues[100][128];
+int averageNodeValues[moveLimit+1][128];
+int chessPositionsData[moveLimit+1][66];
+int lastLayerNeuronsData[moveLimit+1][128];
 
-int chessPositionsData[100][66];
 int chessPositionsDataInc = 0;
 bool wasHumanFirstInData = true;
-float learningRate = 0.0000005f;
-float learnProgressSmoother = 1.0f;
+float learningRate = 0.1f;
+float learnProgressSmoother = 1;
 bool isBackPropagationRunning = false;
-int tempHowItsFrom = 0;
-int tempHowItsTo = 0;
 int moveNumberForNN = 0;
-int numberOfGamesPlayed = 23;
 float additionalMultiplier = 1.0f;
 bool isAdditionalMultiplierON = false;
 bool isNNLearningTurnedON = true;
-bool isAILearningByItself = true; //false
+bool isAILearningByItself = false;
 
-//int temporaryChessPositionsData[66];
-//chessPositionsData[0][0] = 0 - Draw, 10 - Do like first, -10 - Do like second
+int numberOfGamesPlayed = 0;
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -3150,7 +3144,7 @@ static void isGameEnded()
 {
     isAnyMoveViable = false;
     isChessPieceSelected = true;
-    if (moveNumber >= 98)
+    if (moveNumber >= moveLimit)
     {
         gameEnded = true;
     }
@@ -3204,6 +3198,7 @@ static void isGameEnded()
     if (isAnyMoveViable == false)
     {
         gameEnded = true;
+        waitForFrame = 0;
         if (isWhitesTurn == true)
         {
             if (isWhiteKingInCheck == true)
@@ -3255,6 +3250,7 @@ static void resetButton()
     isEnPassantForBlackPossible = false;
     enPassantX = 0;
     moveNumber = 0;
+    waitForFrame = 0;
     wasHumanFirstInData = false;
 
     chessPositionsDataInc = 0;
@@ -3265,6 +3261,17 @@ static void resetButton()
             chessPositionsData[i][j] = 0;
         }
     }
+    for (int i = 0; i < 100; i++)
+    {
+        for (int j = 0; j < 128; j++)
+        {
+            lastLayerNeuronsData[i][j] = 0;
+        }
+    }
+
+
+    isAILearningByItself = false;
+
 
 }
 
@@ -3364,6 +3371,28 @@ static void nnWriteWithRandomValues()
     }
 }
 
+static void resetBiasValues()
+{
+    char bias[] = "NeuralNetwork/biasesLayer";
+    char number[] = "0";
+    char txt[] = ".txt";
+    for (int i = 1; i < 10; i++)
+    {
+        char* name = new char[std::strlen(bias) + std::strlen(number) + std::strlen(txt) + 1];
+        std::strcpy(name, bias);
+        number[0] = i + '0';
+        std::strcat(name, number);
+        std::strcat(name, txt);
+        std::ofstream b(name);
+
+        for (int j = 0; j < neuronsCount[i]; j++)
+        {
+            b << 0 << " ";
+        }
+        b.close();
+    }
+}
+
 static void nnWrite()
 {
     char weight[] = "NeuralNetwork/weightsLayer";
@@ -3450,101 +3479,101 @@ static void nnBoardToInput()
             case 30:
                 if (isWhitesTurn == true)
                 {
-                    neurons[(h * 8) + w + 64][0] = 1;
+                    neurons[(h * 8) + w + 64][0] = 3;
                 }
                 else
                 {
-                    neurons[(h * 8) + w + 64][0] = -1;
+                    neurons[(h * 8) + w + 64][0] = -3;
                 }
                 break;
             case 31:
                 if (isWhitesTurn == false)
                 {
-                    neurons[(h * 8) + w + 64][0] = 1;
+                    neurons[(h * 8) + w + 64][0] = 3;
                 }
                 else
                 {
-                    neurons[(h * 8) + w + 64][0] = -1;
+                    neurons[(h * 8) + w + 64][0] = -3;
                 }
                 break;
             case 32:
                 if (isWhitesTurn == true)
                 {
-                    neurons[(h * 8) + w + 128][0] = 1;
+                    neurons[(h * 8) + w + 128][0] = 3.2;
                 }
                 else
                 {
-                    neurons[(h * 8) + w + 128][0] = -1;
+                    neurons[(h * 8) + w + 128][0] = -3.2;
                 }
                 break;
             case 33:
                 if (isWhitesTurn == false)
                 {
-                    neurons[(h * 8) + w + 128][0] = 1;
+                    neurons[(h * 8) + w + 128][0] = 3.2;
                 }
                 else
                 {
-                    neurons[(h * 8) + w + 128][0] = -1;
+                    neurons[(h * 8) + w + 128][0] = -3.2;
                 }
                 break;
             case 50:
                 if (isWhitesTurn == true)
                 {
-                    neurons[(h * 8) + w + 192][0] = 1;
+                    neurons[(h * 8) + w + 192][0] = 5;
                 }
                 else
                 {
-                    neurons[(h * 8) + w + 192][0] = -1;
+                    neurons[(h * 8) + w + 192][0] = -5;
                 }
                 break;
             case 51:
                 if (isWhitesTurn == false)
                 {
-                    neurons[(h * 8) + w + 192][0] = 1;
+                    neurons[(h * 8) + w + 192][0] = 5;
                 }
                 else
                 {
-                    neurons[(h * 8) + w + 192][0] = -1;
+                    neurons[(h * 8) + w + 192][0] = -5;
                 }
                 break;
             case 90:
                 if (isWhitesTurn == true)
                 {
-                    neurons[(h * 8) + w + 256][0] = 1;
+                    neurons[(h * 8) + w + 256][0] = 9;
                 }
                 else
                 {
-                    neurons[(h * 8) + w + 256][0] = -1;
+                    neurons[(h * 8) + w + 256][0] = -9;
                 }
                 break;
             case 91:
                 if (isWhitesTurn == false)
                 {
-                    neurons[(h * 8) + w + 256][0] = 1;
+                    neurons[(h * 8) + w + 256][0] = 9;
                 }
                 else
                 {
-                    neurons[(h * 8) + w + 256][0] = -1;
+                    neurons[(h * 8) + w + 256][0] = -9;
                 }
                 break;
             case 100:
                 if (isWhitesTurn == true)
                 {
-                    neurons[(h * 8) + w + 320][0] = 1;
+                    neurons[(h * 8) + w + 320][0] = 10;
                 }
                 else
                 {
-                    neurons[(h * 8) + w + 320][0] = -1;
+                    neurons[(h * 8) + w + 320][0] = -10;
                 }
                 break;
             case 101:
                 if (isWhitesTurn == false)
                 {
-                    neurons[(h * 8) + w + 320][0] = 1;
+                    neurons[(h * 8) + w + 320][0] = 10;
                 }
                 else
                 {
-                    neurons[(h * 8) + w + 320][0] = -1;
+                    neurons[(h * 8) + w + 320][0] = -10;
                 }
                 break;
             }
@@ -3601,7 +3630,7 @@ static float nnReLU(float neuronValue)
     {
         return neuronValue;
     }
-} 
+}
 
 static void nnForwardPropagation()
 {
@@ -3716,15 +3745,6 @@ static void nnWhatMoveToPlay()
 
     while (doesThisPieceHaveMoves == false)
     {
-        if (moveNumberForNN == 61)
-        {
-            std::cout << "\n\n";
-            for (int i = 0; i < 128; i++)
-            {
-                std::cout << copyOfLastLayerNeurons[i] << " ";
-            }
-            std::cout << "\n\n";
-        }
         isAnyMoveLeft = false;
         valueFrom = -1;
         placeFrom = 0;
@@ -3741,15 +3761,7 @@ static void nnWhatMoveToPlay()
         placeFrom -= selectedPieceX;
         selectedPieceY = placeFrom / 8;
         isChessPieceSelected = true;
-        if (moveNumberForNN > -1)
-        {
-            std::cout << selectedPieceY << " " << selectedPieceX << " ";
-        }
         updateViableMoves();
-        if (moveNumberForNN > -1)
-        {
-            std::cout << selectedPieceY << " " << selectedPieceX << "    ";
-        }
         for (int h = 0; h < 8; h++)
         {
             for (int w = 0; w < 8; w++)
@@ -3814,24 +3826,19 @@ static void nnWhatMoveToPlay()
     }
 
     //Moving piece
-    if (gameEnded == true)
+    if (chessPositionsDataInc == 0)
     {
-        tempHowItsFrom = placeFrom + selectedPieceX;
-        tempHowItsTo = placeTo + toX;
-        std::cout << "[Ruch Z: " << tempHowItsFrom << " Ruch Do:" << tempHowItsTo << "]";
+        wasHumanFirstInData = false;
     }
-    else
-    {
-        if (chessPositionsDataInc == 0)
-        {
-            wasHumanFirstInData = false;
-        }
-        pieceMove(toY, toX);
-    }
+    pieceMove(toY, toX);
+
 }
 
 static void nnCalculateLastLayerCost(bool isBestMoveKnown, int howItsFrom, int howItsTo, int howShouldBeFrom, int howShouldBeTo)
 {
+    // neurons[x][9] = lastLayerNeuronsData[moveNumberForNN][x]
+
+
     if (isBestMoveKnown == true)
     {
         for (int i = 0; i < 64; i++)
@@ -3842,11 +3849,11 @@ static void nnCalculateLastLayerCost(bool isBestMoveKnown, int howItsFrom, int h
             }
             else if (i == howShouldBeFrom)
             {
-                nodeValues[i][9] = -neurons[i][9] + maxIntValue;
+                nodeValues[i][9] = -lastLayerNeuronsData[moveNumberForNN][i] + 1000; //+ maxIntValue;
             }
             else
             {
-                nodeValues[i][9] = -neurons[i][9]; //-maxIntValue
+                nodeValues[i][9] = -lastLayerNeuronsData[moveNumberForNN][i]; //-maxIntValue
             }
         }
 
@@ -3858,11 +3865,11 @@ static void nnCalculateLastLayerCost(bool isBestMoveKnown, int howItsFrom, int h
             }
             else if (i == howShouldBeTo + 64)
             {
-                nodeValues[i][9] = -neurons[i][9] + maxIntValue;
+                nodeValues[i][9] = -lastLayerNeuronsData[moveNumberForNN][i] + 1000;//+ maxIntValue;
             }
             else
             {
-                nodeValues[i][9] = -neurons[i][9]; //-maxIntValue
+                nodeValues[i][9] = -lastLayerNeuronsData[moveNumberForNN][i]; //-maxIntValue
             }
         }
     }
@@ -3873,11 +3880,11 @@ static void nnCalculateLastLayerCost(bool isBestMoveKnown, int howItsFrom, int h
         {
             if (i == howItsFrom || i - 64 == howItsTo)
             {
-                nodeValues[i][9] = -neurons[i][9];
+                nodeValues[i][9] = -lastLayerNeuronsData[moveNumberForNN][i];
             }
             else
             {
-                nodeValues[i][9] = 1000000 - neurons[i][9];
+                nodeValues[i][9] = 1000 - lastLayerNeuronsData[moveNumberForNN][i];
             }
         }
     }
@@ -3885,7 +3892,7 @@ static void nnCalculateLastLayerCost(bool isBestMoveKnown, int howItsFrom, int h
     //Multiplying by 2; partial derivative
     for (int i = 0; i < 128; i++)
     {
-        nodeValues[i][9] /= 1000;
+        //nodeValues[i][9] /= 1000;
         if (nodeValues[i][9] > 500)
         {
             nodeValues[i][9] = 1000;
@@ -3912,6 +3919,12 @@ static void nnChessBoardToData(int dataY, int dataX)
     }
     chessPositionsData[chessPositionsDataInc][64] = selectedPieceY * 8 + selectedPieceX;
     chessPositionsData[chessPositionsDataInc][65] = dataY * 8 + dataX;
+
+    for (int i = 0; i < 128; i++)
+    {
+        lastLayerNeuronsData[chessPositionsDataInc][i] = neurons[i][9];
+    }
+
     chessPositionsDataInc++;
 }
 
@@ -3922,52 +3935,49 @@ static void nnBackPropagation()
         //Weight update
         for (int h = 0; h < neuronsCount[i - 1]; h++)
         {
+            float totalchange = 0.0f;
             for (int w = 0; w < neuronsCount[i]; w++)
-            {
-                float change = (nodeValues[w][9] * neurons[h][8] * learningRate * learnProgressSmoother * additionalMultiplier * ((moveNumberForNN) / 5) + 1);
+            {                
+                float change = nodeValues[w][9] * neurons[h][8];
+                change *= ((moveNumberForNN / 5) + 1);
+                change *= learningRate;
+                change *= learnProgressSmoother;
+                change *= additionalMultiplier;
+
                 if (change > 1) { change = 1; }
                 if (change < -1) { change = -1; }
-                copyOfWeights[h][w][i] += change;
-                if (copyOfWeights[h][w][i] > weightRange) { copyOfWeights[h][w][i] = weightRange; }
-                if (copyOfWeights[h][w][i] < -weightRange) { copyOfWeights[h][w][i] = -weightRange; }
+                totalchange += change;
+                weights[h][w][i] += change;
+                if (weights[h][w][i] > weightRange) { weights[h][w][i] = weightRange; }
+                if (weights[h][w][i] < -weightRange) { weights[h][w][i] = -weightRange; }
             }
+            std::cout << totalchange << " ";
         }
         //Bias update
         for (int j = 0; j < neuronsCount[i]; j++)
         {
             int change = nodeValues[j][i];
-            if (change > 1) { change = 1; }
-            if (change < -1) { change = -1; }
-            copyOfBiases[j][i] += change;
-            if (copyOfBiases[j][i] > biasRange) { copyOfBiases[j][i] = biasRange; }
-            if (copyOfBiases[j][i] < -biasRange) { copyOfBiases[j][i] = -biasRange; }
+            if (change > 100) { change = 100; }
+            if (change < -100) { change = -100; }
+            biases[j][i] += change;
+            if (biases[j][i] > biasRange) { biases[j][i] = biasRange; }
+            if (biases[j][i] < -biasRange) { biases[j][i] = -biasRange; }
         }
         //Node update
         for (int j = 0; j < neuronsCount[i - 1]; j++)
         {
             for (int k = 0; k < neuronsCount[i]; k++)
             {
-                nodeValues[j][i - 1] += weights[j][k][i] * 10000 * nodeValues[j][i];            
+                nodeValues[j][i - 1] += weights[j][k][i] * nodeValues[j][i];
+                nodeValues[j][i - 1] /= 1000;
             }
         }
+        std::cout << "\n\n\n";
     }
 }
 
 static void nnBackPropagationHandler()
 {
-    for (int i = 9; i > 0; i--)
-    {
-        for (int j = 0; j < neuronsCount[i]; j++)
-        {
-            copyOfBiases[j][i] = biases[j][i];
-
-            for (int k = 0; k < neuronsCount[i - 1]; k++)
-            {
-                copyOfWeights[k][j][i] = weights[k][j][i];
-            }
-        }
-    }
-
     bool doLikeFirst = true;
 
     if (wasHumanFirstInData == false && didHumanWin == true)
@@ -3984,34 +3994,24 @@ static void nnBackPropagationHandler()
     {
         if (numberOfGamesPlayed < 100)
         {
-            for (int i = 0; i < chessPositionsDataInc - 1; i++)
+            for (int i = 0; i < chessPositionsDataInc; i++)
             {
-                std::cout << "\n" << i << " ";
                 moveNumberForNN = i;
-
-
-                if (moveNumberForNN == 61 && numberOfGamesPlayed == 24)
+                
+                for (int h = 0; h < 8; h++)
                 {
-                    continue;
-                }
-
-                    for (int h = 0; h < 8; h++)
+                    for (int w = 0; w < 8; w++)
                     {
-                        for (int w = 0; w < 8; w++)
-                        {
-                            chessBoard[h][w] = chessPositionsData[i][h * 8 + w];
-                        }
+                        chessBoard[h][w] = chessPositionsData[i][h * 8 + w];
                     }
-                    nnBoardToInput();
-                    nnForwardPropagation();
-                    nnWhatMoveToPlay();
-                    nnCalculateLastLayerCost(false, tempHowItsFrom, tempHowItsTo, 0, 0);
-                    nnBackPropagation();
+                }
+                nnCalculateLastLayerCost(false, chessPositionsData[i][64], chessPositionsData[i][65], 0, 0);
+                nnBackPropagation();
             }
         }
         else
         {        //Calculate average error from all positions in chess game
-            for (int i = 0; i < chessPositionsDataInc - 1; i++)
+            for (int i = 0; i < chessPositionsDataInc; i++)
             {
                 moveNumberForNN = i;
                 for (int h = 0; h < 8; h++)
@@ -4021,10 +4021,7 @@ static void nnBackPropagationHandler()
                         chessBoard[h][w] = chessPositionsData[i][h * 8 + w];
                     }
                 }
-                nnBoardToInput();
-                nnForwardPropagation();
-                nnWhatMoveToPlay();
-                nnCalculateLastLayerCost(false, tempHowItsFrom, tempHowItsTo, 0, 0);
+                nnCalculateLastLayerCost(false, chessPositionsData[i][64], chessPositionsData[i][65], 0, 0);
                 for (int j = 0; j < 128; j++)
                 {
                     averageNodeValues[i][j] = nodeValues[j][9];
@@ -4033,18 +4030,18 @@ static void nnBackPropagationHandler()
             for (int i = 0; i < 128; i++)
             {
                 long int average = 0;
-                for (int j = 0; j < chessPositionsDataInc - 1; j++)
+                for (int j = 0; j < chessPositionsDataInc; j++)
                 {                 
                     average += averageNodeValues[j][i];
                 }
-                nodeValues[i][9] = average / (chessPositionsDataInc - 1);
+                nodeValues[i][9] = average / (chessPositionsDataInc);
             }
             nnBackPropagation();
         }
     }
     else
     {
-        for (int i = 0; i < chessPositionsDataInc-1; i++)
+        for (int i = 0; i < chessPositionsDataInc; i++)
         {
             moveNumberForNN = i;
             for (int h = 0; h < 8; h++)
@@ -4054,49 +4051,25 @@ static void nnBackPropagationHandler()
                     chessBoard[h][w] = chessPositionsData[i][h * 8 + w];
                 }
             }
-            nnBoardToInput();
-            nnForwardPropagation();
-            nnWhatMoveToPlay();
             if (doLikeFirst == true)
             {
-                if (i % 2 == 0)
-                    {
-                        nnCalculateLastLayerCost(true, tempHowItsFrom, tempHowItsTo, chessPositionsData[i][64], chessPositionsData[i][65]);
-                    }
-                else
-                    {
-                        nnCalculateLastLayerCost(false, tempHowItsFrom, tempHowItsTo, 0, 0);
-                    }
+                if (i % 2 == 1)
+                {
+                    nnCalculateLastLayerCost(false, chessPositionsData[i][64], chessPositionsData[i][65], 0, 0);
+                    nnBackPropagation();
+                }
             }
             else
             {
-                if (i % 2 == 1)
-                    {
-                        nnCalculateLastLayerCost(true, tempHowItsFrom, tempHowItsTo, chessPositionsData[i][64], chessPositionsData[i][65]);
-                    }
-                else
-                    {
-                        nnCalculateLastLayerCost(false, tempHowItsFrom, tempHowItsTo, 0, 0);
-                    }
+                if (i % 2 == 0)
+                {
+                    nnCalculateLastLayerCost(false, chessPositionsData[i][64], chessPositionsData[i][65], 0, 0);
+                    nnBackPropagation();
+                }
             }
-            nnBackPropagation();
         }
     }
     isBackPropagationRunning = false;
-
-    for (int i = 9; i > 0; i--)
-    {
-        for (int j = 0; j < neuronsCount[i]; j++)
-        {
-            biases[j][i] = copyOfBiases[j][i];
-
-            for (int k = 0; k < neuronsCount[i - 1]; k++)
-            {
-                weights[k][j][i] = copyOfWeights[k][j][i];
-            }
-        }
-    }
-
     resetButton();
 }
 
@@ -4243,109 +4216,6 @@ static void pieceMove(int Y, int X)
     isGameEnded();
 }
 
-//BackpropagationHandler
-/*
-static void nnBackPropagationHandler()
-{
-    bool isDataDraw = false;
-    bool isFirstDataWin = false;
-    if (chessPositionsData[0][0] == 0)
-    {
-        isDataDraw = true;
-    }
-    else if (chessPositionsData[0][0] == 10)
-    {
-        isFirstDataWin = true;
-    }
-    increment = 1;
-    while (increment < 99 && increment < moveNumber)
-    {
-        if (isDataDraw == true)
-        {
-            for (int h = 0; h < 8; h++)
-            {
-                for (int w = 0; w < 8; w++)
-                {
-                    chessBoard[h][w] = chessPositionsData[increment][(h * 8 + w)];
-                }
-            }
-            nnBoardToInput();
-            nnThink();
-            nnWhatMoveToPlay();
-            nnCalculateCost(true, false, 0, 0, 0, 0);
-            nnBackPropagation();
-            increment++;
-        }
-        else
-        {
-            if (isFirstDataWin == true)
-            {
-                for (int h = 0; h < 8; h++)
-                {
-                    for (int w = 0; w < 8; w++)
-                    {
-                        chessBoard[h][w] = chessPositionsData[increment][(h * 8 + w)];
-                    }
-                }
-                nnBoardToInput();
-                nnThink();
-                nnWhatMoveToPlay();
-                nnCalculateCost(false, true, tempHowItsFrom, tempHowItsTo, chessPositionsData[increment][64], chessPositionsData[increment][65]);
-                nnBackPropagation();
-                increment++;
-
-                for (int h = 0; h < 8; h++)
-                {
-                    for (int w = 0; w < 8; w++)
-                    {
-                        chessBoard[h][w] = chessPositionsData[increment][(h * 8 + w)];
-                    }
-                }
-
-                nnBoardToInput();
-                nnThink();
-                nnWhatMoveToPlay();
-                nnCalculateCost(false, false, tempHowItsFrom, tempHowItsTo, 0, 0);
-                nnBackPropagation();
-                increment++;
-            }
-            else
-            {
-                for (int h = 0; h < 8; h++)
-                {
-                    for (int w = 0; w < 8; w++)
-                    {
-                        chessBoard[h][w] = chessPositionsData[increment][(h * 8 + w)];
-                    }
-                }
-                nnBoardToInput();
-                nnThink();
-                nnWhatMoveToPlay();
-                nnCalculateCost(false, false, tempHowItsFrom, tempHowItsTo, 0, 0);
-                nnBackPropagation();
-                increment++;
-
-                for (int h = 0; h < 8; h++)
-                {
-                    for (int w = 0; w < 8; w++)
-                    {
-                        chessBoard[h][w] = chessPositionsData[increment][(h * 8 + w)];
-                    }
-                }
-                nnBoardToInput();
-                nnThink();
-                nnWhatMoveToPlay();
-                nnCalculateCost(false, true, tempHowItsFrom, tempHowItsTo, chessPositionsData[increment][64], chessPositionsData[increment][65]);
-                nnBackPropagation();
-                increment++;
-
-            }
-        }      
-    }
-    resetButton();
-}
-*/
-
 //Main
 int main(int, char**)
 {
@@ -4406,9 +4276,10 @@ int main(int, char**)
     ID3D11ShaderResourceView* wr = NULL; LoadTextureFromFile("assets/wr.png", &wr, &my_image_width, &my_image_height);
     
     boardBeginWhite();
+    resetBiasValues();
     nnLoad();
 
-    int waitForFrame = 0;
+
     //Main loop
     bool done = false;
     while (!done)
@@ -4459,6 +4330,131 @@ int main(int, char**)
 
         int starterBoardPosX = 80;
         int starterBoardPosY = 100;
+
+        //Graphics
+        if (isBoardFlipped == true)
+        {
+            //Drawing Black and White Squares
+            for (int w = 0; w < 8; w++)
+            {
+                for (int h = 0; h < 8; h++)
+                {
+                    ImGui::SetCursorPos(ImVec2(((7-w) * 60) + starterBoardPosX, ((7-h) * 60) + starterBoardPosY));
+                    if (isChessSquareWhite[h][w] == true)
+                    {
+                        ImGui::Image((void*)squarel, ImVec2(my_image_width, my_image_height));
+                    }
+                    else
+                    {
+                        ImGui::Image((void*)squared, ImVec2(my_image_width, my_image_height));
+                    }
+                }
+            }
+
+            //Drawing Viable Moves
+            for (int w = 0; w < 8; w++)
+            {
+                for (int h = 0; h < 8; h++)
+                {
+                    ImGui::SetCursorPos(ImVec2(((7-w) * 60) + starterBoardPosX, ((7-h) * 60) + starterBoardPosY));
+                    if (isChessSquareViableMove[h][w] == true)
+                    {
+                        ImGui::Image((void*)squareb, ImVec2(my_image_width, my_image_height));
+                    }
+                }
+            }
+
+            //Drawing Check Indicator
+            if (isWhiteKingInCheck == true)
+            {
+                for (int w = 0; w < 8; w++)
+                {
+                    for (int h = 0; h < 8; h++)
+                    {
+                        if (chessBoard[h][w] == 100)
+                        {
+                            ImGui::SetCursorPos(ImVec2(((7-w) * 60) + starterBoardPosX, ((7-h) * 60) + starterBoardPosY));
+                            ImGui::Image((void*)squarer, ImVec2(my_image_width, my_image_height));
+                        }
+                    }
+                }
+            }
+            if (isBlackKingInCheck == true)
+            {
+                for (int w = 0; w < 8; w++)
+                {
+                    for (int h = 0; h < 8; h++)
+                    {
+                        if (chessBoard[h][w] == 101)
+                        {
+                            ImGui::SetCursorPos(ImVec2(((7-w) * 60) + starterBoardPosX, ((7-h) * 60) + starterBoardPosY));
+                            ImGui::Image((void*)squarer, ImVec2(my_image_width, my_image_height));
+                        }
+                    }
+                }
+            }
+
+            //Drawing Selected Square
+            if (isChessPieceSelected == true)
+            {
+                ImGui::SetCursorPos(ImVec2(((7-selectedPieceX) * 60) + starterBoardPosX, ((7-selectedPieceY) * 60) + starterBoardPosY));
+                ImGui::Image((void*)squarec, ImVec2(my_image_width, my_image_height));
+            }
+
+            //Drawing Chess Pieces
+            for (int w = 0; w < 8; w++)
+            {
+                for (int h = 0; h < 8; h++)
+                {
+                    ImGui::SetCursorPos(ImVec2(((7-w) * 60) + starterBoardPosX, ((7-h) * 60) + starterBoardPosY));
+                    switch (chessBoard[h][w])
+                    {
+                    default:
+                        break;
+                    case 0:
+                        break;
+                    case 10:
+                        ImGui::Image((void*)wp, ImVec2(my_image_width, my_image_height));
+                        break;
+                    case 11:
+                        ImGui::Image((void*)bp, ImVec2(my_image_width, my_image_height));
+                        break;
+                    case 30:
+                        ImGui::Image((void*)wn, ImVec2(my_image_width, my_image_height));
+                        break;
+                    case 31:
+                        ImGui::Image((void*)bn, ImVec2(my_image_width, my_image_height));
+                        break;
+                    case 32:
+                        ImGui::Image((void*)wb, ImVec2(my_image_width, my_image_height));
+                        break;
+                    case 33:
+                        ImGui::Image((void*)bb, ImVec2(my_image_width, my_image_height));
+                        break;
+                    case 50:
+                        ImGui::Image((void*)wr, ImVec2(my_image_width, my_image_height));
+                        break;
+                    case 51:
+                        ImGui::Image((void*)br, ImVec2(my_image_width, my_image_height));
+                        break;
+                    case 90:
+                        ImGui::Image((void*)wq, ImVec2(my_image_width, my_image_height));
+                        break;
+                    case 91:
+                        ImGui::Image((void*)bq, ImVec2(my_image_width, my_image_height));
+                        break;
+                    case 100:
+                        ImGui::Image((void*)wk, ImVec2(my_image_width, my_image_height));
+                        break;
+                    case 101:
+                        ImGui::Image((void*)bk, ImVec2(my_image_width, my_image_height));
+                        break;
+                    }
+                }
+            }
+        }
+        else
+        {
 
             //Drawing Black and White Squares
             for (int w = 0; w < 8; w++)
@@ -4578,6 +4574,7 @@ int main(int, char**)
                     }
                 }
             }
+        }
 
         //Buttons and Text
 
@@ -4623,16 +4620,26 @@ int main(int, char**)
 
             ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY));
             ImGui::Checkbox("BackPropagation", &isNNLearningTurnedON);
-
             ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY + 30));
             ImGui::Checkbox("AI Self Learning", &isAILearningByItself);
-
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 40, starterBoardPosY + 60));
-            ImGui::Text("Number of Games:");
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 180, starterBoardPosY + 60));
-            ImGui::Text("%d", numberOfGamesPlayed);
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 40, starterBoardPosY + 90));
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY + 60));
             ImGui::Checkbox("Harder NN learning", &isAdditionalMultiplierON);
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY + 90));
+            ImGui::Checkbox("Start AI from here", &isAITurnedOn);
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 35, starterBoardPosY + 122));
+            ImGui::Text("Force game end");
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY + 120));
+            if (ImGui::Button(".", ImVec2(19, 19)))
+            {
+                gameEnded = true;
+                didHumanWin = true;
+                nnBackPropagationHandler();
+                resetButton();
+            }
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 35, starterBoardPosY + 150));
+            ImGui::Text("Number of Games:");
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 160, starterBoardPosY + 150));
+            ImGui::Text("%d", numberOfGamesPlayed);
 
             if (isAdditionalMultiplierON == true)
             {
@@ -4642,9 +4649,6 @@ int main(int, char**)
             {
                 additionalMultiplier = 1.0f;
             }
-
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 120));
-            ImGui::Checkbox("Start AI from here", &isAITurnedOn);
 
             if (isAITurnedOn == true || isHumanPlayingAgainstAI == true)
             {
@@ -4658,14 +4662,14 @@ int main(int, char**)
 
             if (isAITurnedOn == true)
             {
-                ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 160));
-                ImGui::Text("You are playing against AI.");
                 ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 180));
+                ImGui::Text("You are playing against AI.");
+                ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 210));
                 ImGui::Text("Good Luck.");
             }
             else
             {
-                ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 160));
+                ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 180));
                 ImGui::Text("You are playing against You.");
             }
             //Text
@@ -4719,7 +4723,7 @@ int main(int, char**)
             }
 
         //Backpropagation after game's end
-        if (gameEnded == true)
+        if (gameEnded == true && waitForFrame > 1)
         {
             numberOfGamesPlayed++;
             if (isNNLearningTurnedON == true)
@@ -4743,7 +4747,7 @@ int main(int, char**)
         //AI turn
         if (gameEnded == false && isAILearningByItself == false)
         {
-            if (isAITurnedOn == true && waitForFrame > 5)
+            if (isAITurnedOn == true && waitForFrame > 1)
             {
                 if (isBoardFlipped == false)
                 {
@@ -4770,6 +4774,12 @@ int main(int, char**)
             {
                 int X = (mousePosition.x - 80) / 60;
                 int Y = (mousePosition.y - 100) / 60;
+                if (isBoardFlipped == true)
+                {
+                    X = 7 - X;
+                    Y = 7 - Y;
+                }
+
 
                 if (isChessPieceSelected == true && isChessSquareViableMove[Y][X] == true)
                 {
