@@ -3268,11 +3268,6 @@ static void resetButton()
             lastLayerNeuronsData[i][j] = 0;
         }
     }
-
-
-    isAILearningByItself = false;
-
-
 }
 
 //Neural Network functions
@@ -3951,7 +3946,6 @@ static void nnBackPropagation()
                 if (weights[h][w][i] > weightRange) { weights[h][w][i] = weightRange; }
                 if (weights[h][w][i] < -weightRange) { weights[h][w][i] = -weightRange; }
             }
-            std::cout << totalchange << " ";
         }
         //Bias update
         for (int j = 0; j < neuronsCount[i]; j++)
@@ -3972,7 +3966,6 @@ static void nnBackPropagation()
                 nodeValues[j][i - 1] /= 1000;
             }
         }
-        std::cout << "\n\n\n";
     }
 }
 
@@ -4276,7 +4269,6 @@ int main(int, char**)
     ID3D11ShaderResourceView* wr = NULL; LoadTextureFromFile("assets/wr.png", &wr, &my_image_width, &my_image_height);
     
     boardBeginWhite();
-    resetBiasValues();
     nnLoad();
 
 
@@ -4299,7 +4291,7 @@ int main(int, char**)
         }
         if (done)
         {
-            //nnWrite();
+            nnWrite();
             break;
         }
         //Handle window being minimized or screen locked
