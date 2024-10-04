@@ -14,7 +14,6 @@
 
 //TODO
 //if there is a few highest output neurons and they are the same choose random, not first
-//weights are at max. WHY? idk
 
 //D311
 static ID3D11Device* g_pd3dDevice = nullptr;
@@ -107,15 +106,17 @@ const int neuronsCount[10] =
 };
 
 const int weightRange = 1000; // e.g.  -x.000 -- +x.000
-const int biasRange = 1000; // e.g. -x -- +x;
+const int biasRange = 10000; // e.g. -x -- +x;
 
 float weights[4096][4096][10];
+float copyOfWeights[4096][4096][10];
 
 double neurons[4096][10];
-//do usuniecia copyOfetc.
+
 int copyOfLastLayerNeurons[128];
 
 int biases[4096][10];
+int copyOfBiases[4096][10];
 
 int nodeValues[4096][10];
 int averageNodeValues[moveLimit+1][128];
@@ -3636,9 +3637,9 @@ static void nnBoardToInput()
 
 static float nnReLU(float neuronValue)
 {
-    if (neuronValue < 0)
+    if (neuronValue < 1)
     {
-        return 0;
+        return 1;
     }
     else
     {
@@ -3655,7 +3656,14 @@ static void nnForwardPropagation()
             float temporaryNeuronValue = 0.000f;
             for (int k = 0; k < neuronsCount[i - 1]; k++)
             {
-                temporaryNeuronValue += (neurons[j][i-1] * weights[k][j][i]);
+                if (weights[k][j][i] == 0)
+                {
+                    temporaryNeuronValue += (neurons[j][i - 1]);
+                }
+                else
+                {
+                    temporaryNeuronValue += (neurons[j][i - 1] * weights[k][j][i]);
+                }
             }
             temporaryNeuronValue += biases[j][i];
             neurons[j][i] = nnReLU(temporaryNeuronValue);
@@ -3894,7 +3902,7 @@ static void nnCalculateLastLayerCost(bool isBestMoveKnown, int howItsFrom, int h
         {
             if (i == howItsFrom || i - 64 == howItsTo)
             {
-                nodeValues[i][9] = -lastLayerNeuronsData[moveNumberForNN][i];
+                nodeValues[i][9] = -lastLayerNeuronsData[moveNumberForNN][i] + 100; //slightly increasing all other values
             }
             else
             {
@@ -3945,24 +3953,23 @@ static void nnBackPropagation()
                 change *= learningRate;
                 change *= learnProgressSmoother;
                 change *= additionalMultiplier;
-
                 if (change > 1) { change = 1; }
                 if (change < -1) { change = -1; }
-                weights[h][w][i] += change;
-                if (weights[h][w][i] > weightRange) { weights[h][w][i] = weightRange; }
-                if (weights[h][w][i] < -weightRange) { weights[h][w][i] = -weightRange; }
+                copyOfWeights[h][w][i] += change;
+                if (copyOfWeights[h][w][i] > weightRange) { copyOfWeights[h][w][i] = weightRange; }
+                if (copyOfWeights[h][w][i] < -weightRange) { copyOfWeights[h][w][i] = -weightRange; }
             }
         }
         //Bias update
         for (int j = 0; j < neuronsCount[i]; j++)
         {
             if (nodeValues[j][i] == 0) { continue; }
-            int change = nodeValues[j][i];
-            if (change > 100) { change = 100; }
-            if (change < -100) { change = -100; }
-            biases[j][i] += change;
-            if (biases[j][i] > biasRange) { biases[j][i] = biasRange; }
-            if (biases[j][i] < -biasRange) { biases[j][i] = -biasRange; }
+            int change = nodeValues[j][i]/100;
+            if (change > 10) { change = 10; }
+            if (change < -10) { change = -10; }
+            copyOfBiases[j][i] += change;
+            if (copyOfBiases[j][i] > biasRange) { copyOfBiases[j][i] = biasRange; }
+            if (copyOfBiases[j][i] < -biasRange) { copyOfBiases[j][i] = -biasRange; }
         }
         //Node update
         for (int j = 0; j < neuronsCount[i - 1]; j++)
@@ -3971,7 +3978,8 @@ static void nnBackPropagation()
             {
                 float nodeChange = weights[j][k][i];
                 nodeChange *= nodeValues[j][i];
-                nodeChange *= 1000;               
+                nodeChange /= 1000; 
+                nodeValues[j][i - 1] = nodeChange;
             }
         }
     }
@@ -3979,6 +3987,22 @@ static void nnBackPropagation()
 
 static void nnBackPropagationHandler()
 {
+    for (int i = 0; i < 10; i++)
+    {
+        for (int h = 0; h < neuronsCount[i - 1]; h++)
+        {
+            for (int w = 0; w < neuronsCount[i]; w++)
+            {
+                copyOfWeights[h][w][i] = weights[h][w][i];
+            }
+        }
+
+        for (int j = 0; j < neuronsCount[i]; j++)
+        {
+            copyOfBiases[j][i] = biases[j][i];
+        }
+    }
+
     bool doLikeFirst = true;
 
     if (wasHumanFirstInData == false && didHumanWin == true)
@@ -3995,7 +4019,7 @@ static void nnBackPropagationHandler()
     {
         if (numberOfGamesPlayed < 100)
         {
-            for (int i = 0; i < chessPositionsDataInc; i++)
+            for (int i = 0; i <= chessPositionsDataInc; i++)
             {
                 moveNumberForNN = i;
                 
@@ -4003,25 +4027,29 @@ static void nnBackPropagationHandler()
                 {
                     for (int w = 0; w < 8; w++)
                     {
-                        chessBoard[h][w] = chessPositionsData[i][h * 8 + w];
+                        chessBoard[h][w] = chessPositionsData[i][(h * 8) + w];
                     }
                 }
+                nnBoardToInput();
+                nnForwardPropagation();
                 nnCalculateLastLayerCost(false, chessPositionsData[i][64], chessPositionsData[i][65], 0, 0);
                 nnBackPropagation();
             }
         }
         else
         {        //Calculate average error from all positions in chess game
-            for (int i = 0; i < chessPositionsDataInc; i++)
+            for (int i = 0; i <= chessPositionsDataInc; i++)
             {
                 moveNumberForNN = i;
                 for (int h = 0; h < 8; h++)
                 {
                     for (int w = 0; w < 8; w++)
                     {
-                        chessBoard[h][w] = chessPositionsData[i][h * 8 + w];
+                        chessBoard[h][w] = chessPositionsData[i][(h * 8) + w];
                     }
                 }
+                nnBoardToInput();
+                nnForwardPropagation();
                 nnCalculateLastLayerCost(false, chessPositionsData[i][64], chessPositionsData[i][65], 0, 0);
                 for (int j = 0; j < 128; j++)
                 {
@@ -4031,7 +4059,7 @@ static void nnBackPropagationHandler()
             for (int i = 0; i < 128; i++)
             {
                 long int average = 0;
-                for (int j = 0; j < chessPositionsDataInc; j++)
+                for (int j = 0; j <= chessPositionsDataInc; j++)
                 {                 
                     average += averageNodeValues[j][i];
                 }
@@ -4042,16 +4070,18 @@ static void nnBackPropagationHandler()
     }
     else
     {
-        for (int i = 0; i < chessPositionsDataInc; i++)
+        for (int i = 0; i <= chessPositionsDataInc; i++)
         {
             moveNumberForNN = i;
             for (int h = 0; h < 8; h++)
             {
                 for (int w = 0; w < 8; w++)
                 {
-                    chessBoard[h][w] = chessPositionsData[i][h * 8 + w];
+                    chessBoard[h][w] = chessPositionsData[i][(h * 8) + w];
                 }
             }
+            nnBoardToInput();
+            nnForwardPropagation();
             if (doLikeFirst == true)
             {
                 if (i % 2 == 1)
@@ -4070,6 +4100,23 @@ static void nnBackPropagationHandler()
             }
         }
     }
+
+    for (int i = 0; i < 10; i++)
+    {
+        for (int h = 0; h < neuronsCount[i - 1]; h++)
+        {
+            for (int w = 0; w < neuronsCount[i]; w++)
+            {
+                weights[h][w][i] = copyOfWeights[h][w][i];
+            }
+        }
+
+        for (int j = 0; j < neuronsCount[i]; j++)
+        {
+            biases[j][i] = copyOfBiases[j][i];
+        }
+    }
+
     isBackPropagationRunning = false;
     resetButton();
 }
