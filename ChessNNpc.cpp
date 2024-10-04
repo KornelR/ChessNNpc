@@ -126,7 +126,7 @@ int lastLayerNeuronsData[moveLimit+1][128];
 int chessPositionsDataInc = 0;
 bool wasHumanFirstInData = true;
 float learningRate = 0.001f;
-float learnProgressSmoother = 1;
+float learnProgressSmoother = 1.0f;
 bool isBackPropagationRunning = false;
 int moveNumberForNN = 0;
 float additionalMultiplier = 1.0f;
@@ -4017,7 +4017,7 @@ static void nnBackPropagationHandler()
 
     if (isItDraw == true)
     {
-        if (numberOfGamesPlayed < 100)
+        if (numberOfGamesPlayed < 10000)
         {
             for (int i = 0; i <= chessPositionsDataInc; i++)
             {
@@ -4334,10 +4334,7 @@ int main(int, char**)
     ID3D11ShaderResourceView* wr = NULL; LoadTextureFromFile("assets/wr.png", &wr, &my_image_width, &my_image_height);
     
     resetButton();
-    nnWriteWithRandomValues();
-    nnResetBiasValues();
     nnLoad();
-
 
     //Main loop
     bool done = false;
