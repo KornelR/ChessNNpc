@@ -13,7 +13,7 @@
 #pragma warning(disable : 6386)
 
 //TODO
-//if there is a few highest output neurons and they are the same choose random, not first
+//Nothing :)
 
 //D311
 static ID3D11Device* g_pd3dDevice = nullptr;
@@ -125,7 +125,7 @@ int lastLayerNeuronsData[moveLimit+1][128];
 
 int chessPositionsDataInc = 0;
 bool wasHumanFirstInData = true;
-float learningRate = 0.001f;
+float learningRate = 0.1f;
 float learnProgressSmoother = 1.0f;
 bool isBackPropagationRunning = false;
 int moveNumberForNN = 0;
@@ -134,7 +134,7 @@ bool isAdditionalMultiplierON = false;
 bool isNNLearningTurnedON = true;
 bool isAILearningByItself = false;
 
-int numberOfGamesPlayed = 0;
+int numberOfGamesPlayed = 3;
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -3402,7 +3402,7 @@ static void nnResetBiasValues()
 
         for (int j = 0; j < neuronsCount[i]; j++)
         {
-            b << 0 << " ";
+            b << 10000 << " ";
         }
         b.close();
     }
@@ -3765,6 +3765,8 @@ static void nnWhatMoveToPlay()
     int toX = 0;
     int toY = 0;
 
+    int randomSort[50];
+
     while (doesThisPieceHaveMoves == false)
     {
         isAnyMoveLeft = false;
@@ -3778,6 +3780,21 @@ static void nnWhatMoveToPlay()
                 placeFrom = i;
             }
         }
+
+        int randomInc = 0;
+        for (int i = 0; i < 64; i++)
+        {
+            if (copyOfLastLayerNeurons[i] == valueFrom)
+            {
+                randomSort[randomInc] = i;
+                randomInc++;
+            }
+        }
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> distr(0, randomInc-1);
+        int randomPlaceFrom = distr(gen);
+        placeFrom = randomSort[randomPlaceFrom];
 
         selectedPieceX = placeFrom % 8;
         placeFrom -= selectedPieceX;
@@ -3826,6 +3843,22 @@ static void nnWhatMoveToPlay()
             placeTo = i;
         }
     }
+
+    int randomInc2 = 0;
+    for (int i = 0; i < 64; i++)
+    {
+        if (copyOfLastLayerNeurons[i+64] == valueTo)
+        {
+            randomSort[randomInc2] = i;
+            randomInc2++;
+        }
+    }
+    std::random_device rd2;
+    std::mt19937 gen2(rd2());
+    std::uniform_int_distribution<> distr2(0, randomInc2 - 1);
+    int randomPlaceTo = distr2(gen2);
+    placeTo = randomSort[randomPlaceTo];
+
     toX = placeTo % 8;
     placeTo -= toX;
     toY = placeTo / 8;
@@ -3842,6 +3875,21 @@ static void nnWhatMoveToPlay()
                 placeTo = i;
             }
         }
+        int randomInc3 = 0;
+        for (int i = 0; i < 64; i++)
+        {
+            if (copyOfLastLayerNeurons[i + 64] == valueTo)
+            {
+                randomSort[randomInc3] = i;
+                randomInc3++;
+            }
+        }
+        std::random_device rd3;
+        std::mt19937 gen3(rd3());
+        std::uniform_int_distribution<> distr3(0, randomInc3 - 1);
+        int randomPlaceTo = distr3(gen3);
+        placeTo = randomSort[randomPlaceTo];
+
         toX = placeTo % 8;
         placeTo -= toX;
         toY = placeTo / 8;
@@ -4064,6 +4112,13 @@ static void nnBackPropagationHandler()
                     average += averageNodeValues[j][i];
                 }
                 nodeValues[i][9] = average / (chessPositionsDataInc);
+            }
+            for (int i = 0; i < 10; i++)
+            {
+                for (int j = 0; j < neuronsCount[i]; j++)
+                {
+                    neurons[j][i] = 1;
+                }
             }
             nnBackPropagation();
         }
