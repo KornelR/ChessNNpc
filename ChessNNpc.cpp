@@ -125,7 +125,7 @@ int lastLayerNeuronsData[moveLimit+1][128];
 
 int chessPositionsDataInc = 0;
 bool wasHumanFirstInData = true;
-float learningRate = 0.1f;
+float learningRate = 0.001f;
 float learnProgressSmoother = 1;
 bool isBackPropagationRunning = false;
 int moveNumberForNN = 0;
@@ -134,7 +134,7 @@ bool isAdditionalMultiplierON = false;
 bool isNNLearningTurnedON = true;
 bool isAILearningByItself = false;
 
-int numberOfGamesPlayed = 20;
+int numberOfGamesPlayed = 0;
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -3313,7 +3313,7 @@ static void nnLoad()
             for (int k = 0; k < neuronsCount[i]; k++)
             {
                 w >> weights[j][k][i];
-                weights[j][k][i] /= 1000;
+                //weights[j][k][i] /= 10000;
                 weights[j][k][i] -= weightRange;
             }
         }
@@ -3362,7 +3362,7 @@ static void nnWriteWithRandomValues()
         {
             for (int k = 0; k < neuronsCount[i]; k++)
             {
-                w << distrWeight(gen) << " ";
+                w << (distrWeight(gen)/1000) << " ";
             }
             w << std::endl;
         }
@@ -3386,7 +3386,7 @@ static void nnWriteWithRandomValues()
     }
 }
 
-static void resetBiasValues()
+static void nnResetBiasValues()
 {
     char bias[] = "NeuralNetwork/biasesLayer";
     char number[] = "0";
@@ -3428,8 +3428,8 @@ static void nnWrite()
         {
             for (int k = 0; k < neuronsCount[i]; k++)
             {
-                float temporaryWeight = 1000 * weights[j][k][i];
-                temporaryWeight = temporaryWeight + 1000 * weightRange;
+                float temporaryWeight = weights[j][k][i] + weightRange;
+                //temporaryWeight = temporaryWeight + 10000 * weightRange;
                 w << temporaryWeight << " ";
             }
             w << std::endl;
@@ -3964,7 +3964,7 @@ static void nnBackPropagation()
         for (int j = 0; j < neuronsCount[i]; j++)
         {
             if (nodeValues[j][i] == 0) { continue; }
-            int change = nodeValues[j][i]/100;
+            int change = nodeValues[j][i]/1000;
             if (change > 10) { change = 10; }
             if (change < -10) { change = -10; }
             copyOfBiases[j][i] += change;
@@ -4334,6 +4334,8 @@ int main(int, char**)
     ID3D11ShaderResourceView* wr = NULL; LoadTextureFromFile("assets/wr.png", &wr, &my_image_width, &my_image_height);
     
     resetButton();
+    nnWriteWithRandomValues();
+    nnResetBiasValues();
     nnLoad();
 
 
