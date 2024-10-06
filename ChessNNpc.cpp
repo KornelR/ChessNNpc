@@ -106,35 +106,35 @@ const int neuronsCount[10] =
 };
 
 const int weightRange = 1000; // e.g.  -x.000 -- +x.000
-const int biasRange = 10000; // e.g. -x -- +x;
+const int biasRange = 1000; // e.g. -x -- +x;
 
 float weights[4096][4096][10];
 float copyOfWeights[4096][4096][10];
 
-double neurons[4096][10];
+long double neurons[4096][10];
 
-int copyOfLastLayerNeurons[128];
+long double copyOfLastLayerNeurons[128];
 
 int biases[4096][10];
 int copyOfBiases[4096][10];
 
-int nodeValues[4096][10];
+float nodeValues[4096][10];
 int averageNodeValues[moveLimit+1][128];
 int chessPositionsData[moveLimit+1][66];
-int lastLayerNeuronsData[moveLimit+1][128];
+float lastLayerNeuronsData[moveLimit+1][128];
 
 int chessPositionsDataInc = 0;
 bool wasHumanFirstInData = true;
-float learningRate = 0.1f;
+float learningRate = 0.0001f;
 float learnProgressSmoother = 1.0f;
 bool isBackPropagationRunning = false;
 int moveNumberForNN = 0;
 float additionalMultiplier = 1.0f;
 bool isAdditionalMultiplierON = false;
 bool isNNLearningTurnedON = true;
-bool isAILearningByItself = false;
+bool isAILearningByItself = true; //false
 
-int numberOfGamesPlayed = 3;
+int numberOfGamesPlayed = 90;
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -3266,7 +3266,6 @@ static void resetButton()
     moveNumber = 0;
     waitForFrame = 0;
     wasHumanFirstInData = false;
-
     chessPositionsDataInc = 0;
     for (int i = 0; i < 100; i++)
     {
@@ -3402,7 +3401,7 @@ static void nnResetBiasValues()
 
         for (int j = 0; j < neuronsCount[i]; j++)
         {
-            b << 10000 << " ";
+            b << biasRange << " ";
         }
         b.close();
     }
@@ -3637,9 +3636,9 @@ static void nnBoardToInput()
 
 static float nnReLU(float neuronValue)
 {
-    if (neuronValue < 1)
+    if (neuronValue < 0.001)
     {
-        return 1;
+        return 0.001;
     }
     else
     {
@@ -3666,23 +3665,9 @@ static void nnForwardPropagation()
                 }
             }
             temporaryNeuronValue += biases[j][i];
+            temporaryNeuronValue /= 1000;
             neurons[j][i] = nnReLU(temporaryNeuronValue);
         }
-    }
-
-    //Too big values
-    for (int i = 0; i < 128; i++)
-    {
-        int tymczasowe = 0;
-        if (neurons[i][9] > maxIntValue)
-        {
-            tymczasowe = maxIntValue;
-        }
-        else
-        {
-            tymczasowe = neurons[i][9];
-        }
-        neurons[i][9] = tymczasowe;
     }
 
     //Copy of last layer neurons for WhatMoveToPlay()
@@ -3690,7 +3675,6 @@ static void nnForwardPropagation()
     {
         copyOfLastLayerNeurons[i] = neurons[i][9];
     }
-
 }
 
 static void nnWhatMoveToPlay()
@@ -3759,13 +3743,11 @@ static void nnWhatMoveToPlay()
     bool doesThisPieceHaveMoves = false;
     bool isAnyMoveLeft = true;
 
-    int valueFrom = -1;
+    float valueFrom = -1.0f;
     int placeFrom = 0;
 
     int toX = 0;
     int toY = 0;
-
-    int randomSort[50];
 
     while (doesThisPieceHaveMoves == false)
     {
@@ -3780,21 +3762,6 @@ static void nnWhatMoveToPlay()
                 placeFrom = i;
             }
         }
-
-        int randomInc = 0;
-        for (int i = 0; i < 64; i++)
-        {
-            if (copyOfLastLayerNeurons[i] == valueFrom)
-            {
-                randomSort[randomInc] = i;
-                randomInc++;
-            }
-        }
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_int_distribution<> distr(0, randomInc-1);
-        int randomPlaceFrom = distr(gen);
-        placeFrom = randomSort[randomPlaceFrom];
 
         selectedPieceX = placeFrom % 8;
         placeFrom -= selectedPieceX;
@@ -3827,13 +3794,9 @@ static void nnWhatMoveToPlay()
         {
             isGameEnded();
         }
-        if (moveNumberForNN == 61)
-        {
-            Sleep(5000);
-        }
     }
 
-    int valueTo = -1;
+    float valueTo = -1.0f;
     int placeTo = 0;
     for (int i = 0; i < 64; i++)
     {
@@ -3844,27 +3807,13 @@ static void nnWhatMoveToPlay()
         }
     }
 
-    int randomInc2 = 0;
-    for (int i = 0; i < 64; i++)
-    {
-        if (copyOfLastLayerNeurons[i+64] == valueTo)
-        {
-            randomSort[randomInc2] = i;
-            randomInc2++;
-        }
-    }
-    std::random_device rd2;
-    std::mt19937 gen2(rd2());
-    std::uniform_int_distribution<> distr2(0, randomInc2 - 1);
-    int randomPlaceTo = distr2(gen2);
-    placeTo = randomSort[randomPlaceTo];
-
     toX = placeTo % 8;
     placeTo -= toX;
     toY = placeTo / 8;
+    updateViableMoves();
     while (isChessSquareViableMove[toY][toX] == false)
     {
-        copyOfLastLayerNeurons[toY * 8 + toX + 64] = -1;
+        copyOfLastLayerNeurons[(toY * 8) + toX + 64] = -1;
         valueTo = -1;
         placeTo = 0;
         for (int i = 0; i < 64; i++)
@@ -3875,20 +3824,6 @@ static void nnWhatMoveToPlay()
                 placeTo = i;
             }
         }
-        int randomInc3 = 0;
-        for (int i = 0; i < 64; i++)
-        {
-            if (copyOfLastLayerNeurons[i + 64] == valueTo)
-            {
-                randomSort[randomInc3] = i;
-                randomInc3++;
-            }
-        }
-        std::random_device rd3;
-        std::mt19937 gen3(rd3());
-        std::uniform_int_distribution<> distr3(0, randomInc3 - 1);
-        int randomPlaceTo = distr3(gen3);
-        placeTo = randomSort[randomPlaceTo];
 
         toX = placeTo % 8;
         placeTo -= toX;
@@ -3901,7 +3836,7 @@ static void nnWhatMoveToPlay()
         wasHumanFirstInData = false;
     }
     pieceMove(toY, toX);
-
+    waitForFrame = 0;
 }
 
 static void nnCalculateLastLayerCost(bool isBestMoveKnown, int howItsFrom, int howItsTo, int howShouldBeFrom, int howShouldBeTo)
@@ -3919,7 +3854,7 @@ static void nnCalculateLastLayerCost(bool isBestMoveKnown, int howItsFrom, int h
             }
             else if (i == howShouldBeFrom)
             {
-                nodeValues[i][9] = -lastLayerNeuronsData[moveNumberForNN][i] + 1000; //+ maxIntValue;
+                nodeValues[i][9] = -lastLayerNeuronsData[moveNumberForNN][i] + maxIntValue;
             }
             else
             {
@@ -3935,7 +3870,7 @@ static void nnCalculateLastLayerCost(bool isBestMoveKnown, int howItsFrom, int h
             }
             else if (i == howShouldBeTo + 64)
             {
-                nodeValues[i][9] = -lastLayerNeuronsData[moveNumberForNN][i] + 1000;//+ maxIntValue;
+                nodeValues[i][9] = -lastLayerNeuronsData[moveNumberForNN][i] + maxIntValue;
             }
             else
             {
@@ -3950,7 +3885,7 @@ static void nnCalculateLastLayerCost(bool isBestMoveKnown, int howItsFrom, int h
         {
             if (i == howItsFrom || i - 64 == howItsTo)
             {
-                nodeValues[i][9] = -lastLayerNeuronsData[moveNumberForNN][i] + 100; //slightly increasing all other values
+                nodeValues[i][9] = -lastLayerNeuronsData[moveNumberForNN][i] + 10000; //slightly increasing all other values
             }
             else
             {
@@ -3962,7 +3897,16 @@ static void nnCalculateLastLayerCost(bool isBestMoveKnown, int howItsFrom, int h
     //Multiplying by 2; partial derivative
     for (int i = 0; i < 128; i++)
     {
+        if (nodeValues[i][9] > 50000)
+        {
+            nodeValues[i][9] = 50000;
+        }
+        if (nodeValues[i][9] < -50000)
+        {
+            nodeValues[i][9] = -50000;
+        }
         nodeValues[i][9] *= 2;
+        
     }
 }
 
@@ -4001,8 +3945,8 @@ static void nnBackPropagation()
                 change *= learningRate;
                 change *= learnProgressSmoother;
                 change *= additionalMultiplier;
-                if (change > 1) { change = 1; }
-                if (change < -1) { change = -1; }
+                if (change > 10) { change = 10; }
+                if (change < -10) { change = -10; }
                 copyOfWeights[h][w][i] += change;
                 if (copyOfWeights[h][w][i] > weightRange) { copyOfWeights[h][w][i] = weightRange; }
                 if (copyOfWeights[h][w][i] < -weightRange) { copyOfWeights[h][w][i] = -weightRange; }
@@ -4035,7 +3979,7 @@ static void nnBackPropagation()
 
 static void nnBackPropagationHandler()
 {
-    for (int i = 0; i < 10; i++)
+    for (int i = 1; i < 10; i++)
     {
         for (int h = 0; h < neuronsCount[i - 1]; h++)
         {
@@ -4155,8 +4099,7 @@ static void nnBackPropagationHandler()
             }
         }
     }
-
-    for (int i = 0; i < 10; i++)
+    for (int i = 1; i < 10; i++)
     {
         for (int h = 0; h < neuronsCount[i - 1]; h++)
         {
@@ -4171,9 +4114,7 @@ static void nnBackPropagationHandler()
             biases[j][i] = copyOfBiases[j][i];
         }
     }
-
     isBackPropagationRunning = false;
-    resetButton();
 }
 
 static void pieceMove(int Y, int X)
@@ -4396,7 +4337,6 @@ int main(int, char**)
     while (!done)
     {
         //Required
-        
         //Poll and handle messages (inputs, window resize, etc.)
         MSG msg;
         while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE))
@@ -4420,7 +4360,6 @@ int main(int, char**)
             continue;
         }
         g_SwapChainOccluded = false;
-
         //Handle window resize
         if (g_ResizeWidth != 0 && g_ResizeHeight != 0)
         {
@@ -4429,7 +4368,6 @@ int main(int, char**)
             g_ResizeWidth = g_ResizeHeight = 0;
             CreateRenderTarget();
         }
-
         //Start the Dear ImGui frame
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
@@ -4441,7 +4379,6 @@ int main(int, char**)
 
         int starterBoardPosX = 80;
         int starterBoardPosY = 100;
-
         //Graphics
         if (isBoardFlipped == true)
         {
@@ -4833,6 +4770,13 @@ int main(int, char**)
                 }
             }
 
+        //AI self learning
+        if (gameEnded == false && isAILearningByItself == true && waitForFrame > 1)
+        {
+            nnBoardToInput();
+            nnForwardPropagation();
+            nnWhatMoveToPlay();
+        }
         //Backpropagation after game's end
         if (gameEnded == true && waitForFrame > 1)
         {
@@ -4840,21 +4784,14 @@ int main(int, char**)
             if (isNNLearningTurnedON == true)
             {
                 nnBackPropagationHandler();
+                resetButton();
+                std::cout << "\n\n\n\n";
             }
             else
             {
                 resetButton();
             }
         }
-
-        //AI self learning
-        if (gameEnded == false && isAILearningByItself == true)
-        {
-            nnBoardToInput();
-            nnForwardPropagation();
-            nnWhatMoveToPlay();
-        }
-
         //AI turn
         if (gameEnded == false && isAILearningByItself == false)
         {
@@ -4931,7 +4868,6 @@ int main(int, char**)
                 waitForFrame = 0;
             }
         }
-
         ImGui::End();
         //Rendering
         ImGui::Render();
@@ -4939,7 +4875,6 @@ int main(int, char**)
         g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
         g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-
         //Present
         HRESULT hr = g_pSwapChain->Present(1, 0);
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
