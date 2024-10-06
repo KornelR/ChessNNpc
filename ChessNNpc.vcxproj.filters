@@ -281,4 +281,7 @@
       <Filter>Assets</Filter>
     </Image>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="brain.py" />
+  </ItemGroup>
 </Project>

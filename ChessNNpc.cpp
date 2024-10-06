@@ -8,6 +8,8 @@
 #include <fstream>
 #include <random>
 #include <string>
+#include <cstdlib>
+#include <cstdio>
 #pragma comment(lib, "D3D11.lib")
 #pragma warning(disable : 4996)
 #pragma warning(disable : 6386)
@@ -4329,8 +4331,16 @@ int main(int, char**)
     ID3D11ShaderResourceView* wq = NULL; LoadTextureFromFile("assets/wq.png", &wq, &my_image_width, &my_image_height);
     ID3D11ShaderResourceView* wr = NULL; LoadTextureFromFile("assets/wr.png", &wr, &my_image_width, &my_image_height);
     
+    std::string name = "My Creator";
+    std::string command = "python brain.py " + name;
+
+    system(command.c_str());
+
+
+    Sleep(60000);
+
     resetButton();
-    nnLoad();
+    //nnLoad();
 
     //Main loop
     bool done = false;
@@ -4350,7 +4360,7 @@ int main(int, char**)
         }
         if (done)
         {
-            nnWrite();
+            //nnWrite();
             break;
         }
         //Handle window being minimized or screen locked
