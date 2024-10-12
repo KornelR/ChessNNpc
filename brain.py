@@ -1,11 +1,12 @@
 import sys
 import torch
+import atexit
 import torch.nn as nn
 import torch.optim as optim
 
-class ChessNN(nn.Module):
+class Model(nn.Module):
     def __init__(self, hidden_layer_sizes, activation_function='relu'):
-        super(ChessNN, self).__init__()
+        super(Model, self).__init__()
         
         # Input layer
         self.layers = nn.ModuleList()
@@ -29,7 +30,15 @@ class ChessNN(nn.Module):
             x = self.activation(layer(x))
         x = self.layers[-1](x)  # Output layer (no activation function here)
         return x
-       
+
+hidden_layer_sizes = [1024, 2048, 4096, 4096, 4096, 4096, 2048, 1024, 512]
+
+model = Model(hidden_layer_sizes, activation_function='relu')
+
+torch.save(model.state_dict(), 'weights.pth')
+
+
+
 def custom_loss(output, target):
     # Separate output into two parts
     output_1 = output[:, :64]  # First 64 outputs
@@ -45,26 +54,71 @@ def custom_loss(output, target):
     
     return loss_1 + loss_2  # Combine the losses
 
+def process_input():  
+    model.eval()
+    input_array = []
 
-def main():
-    name = sys.argv[1]  
-    name2 = sys.argv[2] 
-    print(f"Hello, {name}!")
-    print(f"Hello, {name2}!")
+    for i in range(2, 389):
+        value = float(sys.argv[i])
+        input_array.append(value)
+        
+    input_tensor = torch.tensor(input_array, dtype=torch.float32)
+    output = model(input_tensor)
+    output += 2
+    output *= 100
+
+    returnString = []
+
+    for i in range(0, 128):
+        value = str(output[i])
+        value = value.replace('tensor(', '')
+        value = value.replace(', grad_fn=<SelectBackward0>)','')      
+        returnString += value
+        returnString += "N"
+              
+    print(*returnString)
+   
+def backpropagation():  
+    input_array = []
     
+    for i in range(2, 389):
+        value = float(sys.argv[i])
+        input_array.append(value)
+    
+    model.train()
+    input_tensor = torch.tensor(input_array, dtype=torch.float32)
 
+    target_array = []
+    for j in range(390, 517):
+        target = float(sys.argv[i])
+        target_array.append(target)
+        
+    criterion = nn.MSELoss()
+    optimizer = optim.SGD(model.parameters(), lr=0.01)
+    
+    output = model(input_tensor)
+    loss = criterion(output, target_array)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+    
+def exit_handler():
+    state_dict = torch.load('weights.pth', weights_only=False)
+    model.load_state_dict(state_dict)  
+    model.eval()
+
+atexit.register(exit_handler)
 
 if __name__ == "__main__":
-    main()
     
-    hidden_layer_sizes = [1024, 2048, 4096, 4096, 4096, 4096, 2048, 1024, 512]
-    
-    model = ChessNN(hidden_layer_sizes, activation_function='relu')
-    
-    torch.save(model.state_dict(), 'weights.pth')
 
-     # Define optimizer
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
+    mode = sys.argv[1]
+    
+    if mode == "process_input":
+        process_input()
+    if mode == "backpropagation":
+        backpropagation()
 
 
