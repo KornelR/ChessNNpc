@@ -11,13 +11,11 @@
 #include <cstdlib>
 #include <cstdio>
 #include <stdio.h>
-#include <cmath>
 #pragma comment(lib, "D3D11.lib")
 #pragma warning(disable : 4996)
 #pragma warning(disable : 6386)
 
 //TODO
-//DZIALA???
 
 //D311
 static ID3D11Device* g_pd3dDevice = nullptr;
@@ -33,7 +31,7 @@ void CreateRenderTarget();
 void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-int chessBoard[8][8];
+int chessBoard[8][8][9];
 bool isChessSquareWhite[8][8] = 
 {
     {true,false,true,false,true,false,true,false},
@@ -60,7 +58,7 @@ bool isHumanPlayingAgainstAI = false;
 bool isAITurnedOn = false;
 bool isWhitesTurn = true;
 bool gameEnded = false;
-bool didHumanWin = false;
+bool didWhiteWin = false;
 bool isItDraw = false;
 bool isAnyMoveViable = true;
 bool isWhiteKingCastlingPossible = true;
@@ -85,6 +83,16 @@ const int moveLimit = 99;
 int lastMoves[12][2];
 int maxIntValue = 2147483647;
 
+float normalEvaluation = 0.0f;
+float moreAccurateEvaluation = 0.0f;
+
+int maxDepth = 8;
+float best = 0;
+int bestMoveFromX = 0;
+int bestMoveFromY = 0;
+int bestMoveToX = 0;
+int bestMoveToY = 0;
+
 //White 0 ;=; Black 1
 //Pawn +10 +11
 //Knight +30 +31
@@ -102,31 +110,14 @@ int maxIntValue = 2147483647;
 //10 10 10 10  10 10 10 10
 //50 30 32 90 100 32 30 50
 
-//Neural Network variables
 
-//int averageNodeValues[moveLimit+1][128];
-int chessPositionsData[moveLimit+1][66];
-
-float outNeurons[128];
-
-int targetValues[128];
-
-int chessPositionsDataInc = 0;
-bool wasHumanFirstInData = true;
-
-bool isBackPropagationRunning = false;
-
-bool isNNLearningTurnedON = true;
-bool isAILearningByItself = true; //false
-
-int numberOfGamesPlayed = 64;
-
-int maxNeuronValue = 10; //Im guessing it, x/10 = error in draw, x = error in win/loss
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-static void pieceMove(int Y, int X);
+static void pieceMove(int Y, int X, int whichBoard);
+
+static void resetButton();
 
 static bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_srv, int* out_width, int* out_height)
 {
@@ -177,29 +168,35 @@ static bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView**
 //Chess app functions
 static void boardBeginWhite()
 {
-    chessBoard[0][0] = 51 , chessBoard[0][1] = 31, chessBoard[0][2] = 33, chessBoard[0][3] = 91;
-    chessBoard[0][4] = 101, chessBoard[0][5] = 33, chessBoard[0][6] = 31, chessBoard[0][7] = 51;
-    for (int i = 0; i < 8; i++)
+    for (int j = 0; j < 9; j++)
     {
-        chessBoard[1][i] = 11;
-        chessBoard[2][i] = 0;
-        chessBoard[3][i] = 0;
-        chessBoard[4][i] = 0;
-        chessBoard[5][i] = 0;
-        chessBoard[6][i] = 10;
+        chessBoard[0][0][j] = 51, chessBoard[0][1][j] = 31, chessBoard[0][2][j] = 33, chessBoard[0][3][j] = 91;
+        chessBoard[0][4][j] = 101, chessBoard[0][5][j] = 33, chessBoard[0][6][j] = 31, chessBoard[0][7][j] = 51;
+        for (int i = 0; i < 8; i++)
+        {
+            chessBoard[1][i][j] = 11;
+            chessBoard[2][i][j] = 0;
+            chessBoard[3][i][j] = 0;
+            chessBoard[4][i][j] = 0;
+            chessBoard[5][i][j] = 0;
+            chessBoard[6][i][j] = 10;
+        }
+        chessBoard[7][0][j] = 50, chessBoard[7][1][j] = 30, chessBoard[7][2][j] = 32, chessBoard[7][3][j] = 90;
+        chessBoard[7][4][j] = 100, chessBoard[7][5][j] = 32, chessBoard[7][6][j] = 30, chessBoard[7][7][j] = 50;
+        isBoardFlipped = false;
     }
-    chessBoard[7][0] = 50 , chessBoard[7][1] = 30, chessBoard[7][2] = 32, chessBoard[7][3] = 90;
-    chessBoard[7][4] = 100, chessBoard[7][5] = 32, chessBoard[7][6] = 30, chessBoard[7][7] = 50;
-    isBoardFlipped = false;
 }
 
 static void boardReset()
 {
-    for (int w = 0; w < 8; w++)
+    for (int i = 0; i < 9; i++)
     {
-        for (int h = 0; h < 8; h++)
+        for (int w = 0; w < 8; w++)
         {
-            chessBoard[h][w] = 0;
+            for (int h = 0; h < 8; h++)
+            {
+                chessBoard[h][w][i] = 0;
+            }
         }
     }
 }
@@ -215,19 +212,6 @@ static void resetIsChessSquareViableMove()
         {
             isChessSquareViableMove[h][w] = false;
         }
-    }
-}
-
-static void testingBoardOut()
-{
-    std::cout << "\n";
-    for (int h = 0; h < 8; h++)
-    {
-        for (int w = 0; w < 8; w++)
-        {
-            std::cout << chessBoard[h][w] << "--";
-        }
-        std::cout << "\n";
     }
 }
 
@@ -274,51 +258,51 @@ static void fenToBoardPosition(char FenPos[fenLength])
             chessBoardFENX += 8;
             break;
         case 'P':
-            chessBoard[chessBoardFENY][chessBoardFENX] = 10;
+            chessBoard[chessBoardFENY][chessBoardFENX][0] = 10;
             chessBoardFENX++;
             break;
         case 'p':
-            chessBoard[chessBoardFENY][chessBoardFENX] = 11;
+            chessBoard[chessBoardFENY][chessBoardFENX][0] = 11;
             chessBoardFENX++;
             break;
         case 'N':
-            chessBoard[chessBoardFENY][chessBoardFENX] = 30;
+            chessBoard[chessBoardFENY][chessBoardFENX][0] = 30;
             chessBoardFENX++;
             break;
         case 'n':
-            chessBoard[chessBoardFENY][chessBoardFENX] = 31;
+            chessBoard[chessBoardFENY][chessBoardFENX][0] = 31;
             chessBoardFENX++;
             break;
         case 'B':
-            chessBoard[chessBoardFENY][chessBoardFENX] = 32;
+            chessBoard[chessBoardFENY][chessBoardFENX][0] = 32;
             chessBoardFENX++;
             break;
         case 'b':
-            chessBoard[chessBoardFENY][chessBoardFENX] = 33;
+            chessBoard[chessBoardFENY][chessBoardFENX][0] = 33;
             chessBoardFENX++;
             break;
         case 'R':
-            chessBoard[chessBoardFENY][chessBoardFENX] = 50;
+            chessBoard[chessBoardFENY][chessBoardFENX][0] = 50;
             chessBoardFENX++;
             break;
         case 'r':
-            chessBoard[chessBoardFENY][chessBoardFENX] = 51;
+            chessBoard[chessBoardFENY][chessBoardFENX][0] = 51;
             chessBoardFENX++;
             break;
         case 'Q':
-            chessBoard[chessBoardFENY][chessBoardFENX] = 90;
+            chessBoard[chessBoardFENY][chessBoardFENX][0] = 90;
             chessBoardFENX++;
             break;
         case 'q':
-            chessBoard[chessBoardFENY][chessBoardFENX] = 91;
+            chessBoard[chessBoardFENY][chessBoardFENX][0] = 91;
             chessBoardFENX++;
             break;
         case 'K':
-            chessBoard[chessBoardFENY][chessBoardFENX] = 100;
+            chessBoard[chessBoardFENY][chessBoardFENX][0] = 100;
             chessBoardFENX++;
             break;
         case 'k':
-            chessBoard[chessBoardFENY][chessBoardFENX] = 101;
+            chessBoard[chessBoardFENY][chessBoardFENX][0] = 101;
             chessBoardFENX++;
             break;
         }
@@ -373,23 +357,23 @@ static void fenToBoardPosition(char FenPos[fenLength])
     }
 }
 
-static void updatePawnToQueenPromotion()
+static void updatePawnToQueenPromotion(int whichBoard)
 {
     for (int w = 0; w < 8; w++)
     {
-        if (chessBoard[0][w] == 10)
+        if (chessBoard[0][w][whichBoard] == 10)
         {
-            chessBoard[0][w] = 90;
+            chessBoard[0][w][whichBoard] = 90;
         }
 
-        if (chessBoard[7][w] == 11)
+        if (chessBoard[7][w][whichBoard] == 11)
         {
-            chessBoard[7][w] = 91;
+            chessBoard[7][w][whichBoard] = 91;
         }
     }
 }
 
-static void makeHypotheticalMove(int fromY, int fromX, int toY, int toX)
+static void makeHypotheticalMove(int fromY, int fromX, int toY, int toX, int whichBoard)
 {
     isMoveHypothetical = true;
 
@@ -397,7 +381,7 @@ static void makeHypotheticalMove(int fromY, int fromX, int toY, int toX)
     {
         for (int w = 0; w < 8; w++)
         {
-            hypotheticalBoard[h][w] = chessBoard[h][w];
+            hypotheticalBoard[h][w] = chessBoard[h][w][whichBoard];
         }
     }
     hypotheticalBoard[toY][toX] = hypotheticalBoard[fromY][fromX];
@@ -416,7 +400,7 @@ static void resetDangerSquares()
     }
 }
 
-static void updateDangerSquares()
+static void updateDangerSquares(int whichBoard)
 {
     int temporaryChessBoard[8][8];
 
@@ -426,7 +410,7 @@ static void updateDangerSquares()
         {
             for (int w = 0; w < 8; w++)
             {
-                temporaryChessBoard[h][w] = chessBoard[h][w];
+                temporaryChessBoard[h][w] = chessBoard[h][w][whichBoard];
             }
         }
     }
@@ -1334,10 +1318,10 @@ static void updateDangerSquares()
     }
 }
 
-static void updateIsKingInCheck()
+static void updateIsKingInCheck(int whichBoard)
 {
     resetDangerSquares();
-    updateDangerSquares();
+    updateDangerSquares(whichBoard);
 
     int temporaryChessBoard[8][8];
 
@@ -1347,7 +1331,7 @@ static void updateIsKingInCheck()
         {
             for (int w = 0; w < 8; w++)
             {
-                temporaryChessBoard[h][w] = chessBoard[h][w];
+                temporaryChessBoard[h][w] = chessBoard[h][w][whichBoard];
             }
         }
     }
@@ -1393,18 +1377,18 @@ static void updateIsKingInCheck()
     }
 }
 
-static void updateCastlingWhenRookIsCaptured()
+static void updateCastlingWhenRookIsCaptured(int whichBoard)
 {
     if (isWhiteKingCastlingPossible == true)
     {
-        if (chessBoard[7][7] != 50)
+        if (chessBoard[7][7][whichBoard] != 50)
         {
             isWhiteKingCastlingPossible = false;
         }
     }
     if (isWhiteQueenCastlingPossible == true)
     {
-        if (chessBoard[7][0] != 50)
+        if (chessBoard[7][0][whichBoard] != 50)
         {
             isWhiteQueenCastlingPossible = false;
         }
@@ -1412,36 +1396,36 @@ static void updateCastlingWhenRookIsCaptured()
 
     if (isBlackKingCastlingPossible == true)
     {
-        if (chessBoard[0][7] != 51)
+        if (chessBoard[0][7][whichBoard] != 51)
         {
             isBlackKingCastlingPossible = false;
         }
     }
     if (isBlackQueenCastlingPossible == true)
     {
-        if (chessBoard[0][0] != 51)
+        if (chessBoard[0][0][whichBoard] != 51)
         {
             isBlackQueenCastlingPossible = false;
         }
     }
 }
 
-static void updateViableMoves()
+static void updateViableMoves(int whichBoard)
 {
-    updateIsKingInCheck();
-    updateCastlingWhenRookIsCaptured();
+    updateIsKingInCheck(whichBoard);
+    updateCastlingWhenRookIsCaptured(whichBoard);
 
     if (isChessPieceSelected == true)
     {
-        switch (chessBoard[selectedPieceY][selectedPieceX])
+        switch (chessBoard[selectedPieceY][selectedPieceX][whichBoard])
         {
 //White Pawn Movement:
         case 10:
             //Double move
-            if (selectedPieceY == 6 && chessBoard[selectedPieceY - 2][selectedPieceX] == 0 && chessBoard[selectedPieceY - 1][selectedPieceX] == 0)
+            if (selectedPieceY == 6 && chessBoard[selectedPieceY - 2][selectedPieceX][whichBoard] == 0 && chessBoard[selectedPieceY - 1][selectedPieceX][whichBoard] == 0)
             { 
-                makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX);
-                updateIsKingInCheck();
+                makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX, whichBoard);
+                updateIsKingInCheck(whichBoard);
                 if (isWhiteKingInCheck == false)
                 {
                     isChessSquareViableMove[selectedPieceY - 2][selectedPieceX] = true;
@@ -1449,10 +1433,10 @@ static void updateViableMoves()
                 isMoveHypothetical = false;
             }
             //Single move
-            if (chessBoard[selectedPieceY - 1][selectedPieceX] == 0) 
+            if (chessBoard[selectedPieceY - 1][selectedPieceX][whichBoard] == 0)
             {
-                makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX);
-                updateIsKingInCheck();
+                makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX, whichBoard);
+                updateIsKingInCheck(whichBoard);
                 if (isWhiteKingInCheck == false)
                 {
                     isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true;
@@ -1462,10 +1446,10 @@ static void updateViableMoves()
             //Attacking
             if (selectedPieceX != 0)
             {
-                if (chessBoard[selectedPieceY - 1][selectedPieceX - 1] != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) != 2)
+                if (chessBoard[selectedPieceY - 1][selectedPieceX - 1][whichBoard] != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1][whichBoard] % 10) != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1][whichBoard] % 10) != 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 1,whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
@@ -1475,8 +1459,8 @@ static void updateViableMoves()
                 //EnPassant
                 if (isEnPassantForWhitePossible == true && (selectedPieceX - 1) == enPassantX && selectedPieceY == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
@@ -1485,10 +1469,10 @@ static void updateViableMoves()
                 }
             }
             if (selectedPieceX != 7) {
-                if (chessBoard[selectedPieceY - 1][selectedPieceX + 1] != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) != 2)
+                if (chessBoard[selectedPieceY - 1][selectedPieceX + 1][whichBoard] != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1][whichBoard] % 10) != 0 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1][whichBoard] % 10) != 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
@@ -1498,8 +1482,8 @@ static void updateViableMoves()
                 //EnPassant
                 if (isEnPassantForWhitePossible == true && (selectedPieceX + 1) == enPassantX && selectedPieceY == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
@@ -1511,10 +1495,10 @@ static void updateViableMoves()
 //Black Pawn Movement
         case 11:
             //Double move
-            if (selectedPieceY == 1 && chessBoard[selectedPieceY + 2][selectedPieceX] == 0 && chessBoard[selectedPieceY + 1][selectedPieceX] == 0 )
+            if (selectedPieceY == 1 && chessBoard[selectedPieceY + 2][selectedPieceX][whichBoard] == 0 && chessBoard[selectedPieceY + 1][selectedPieceX][whichBoard] == 0)
             { 
-                makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX);
-                updateIsKingInCheck();
+                makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX, whichBoard);
+                updateIsKingInCheck(whichBoard);
                 if (isBlackKingInCheck == false)
                 {
                     isChessSquareViableMove[selectedPieceY + 2][selectedPieceX] = true;
@@ -1522,10 +1506,10 @@ static void updateViableMoves()
                 isMoveHypothetical = false;
             }
             //Single move
-            if (chessBoard[selectedPieceY + 1][selectedPieceX] == 0) 
+            if (chessBoard[selectedPieceY + 1][selectedPieceX][whichBoard] == 0)
             { 
-                makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX);
-                updateIsKingInCheck();
+                makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX, whichBoard);
+                updateIsKingInCheck(whichBoard);
                 if (isBlackKingInCheck == false)
                 {
                     isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true;
@@ -1535,10 +1519,10 @@ static void updateViableMoves()
             //Attacking
             if (selectedPieceX != 0)
             {
-                if (chessBoard[selectedPieceY + 1][selectedPieceX - 1] != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) != 1 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) != 3)
+                if (chessBoard[selectedPieceY + 1][selectedPieceX - 1][whichBoard] != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1][whichBoard] % 10) != 1 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1][whichBoard] % 10) != 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
@@ -1548,8 +1532,8 @@ static void updateViableMoves()
                 //EnPassant
                 if (isEnPassantForBlackPossible == true && (selectedPieceX - 1) == enPassantX && selectedPieceY == 4)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
@@ -1558,10 +1542,10 @@ static void updateViableMoves()
                 }
             }
             if (selectedPieceX != 7) {
-                if (chessBoard[selectedPieceY + 1][selectedPieceX + 1] != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) != 1 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) != 3)
+                if (chessBoard[selectedPieceY + 1][selectedPieceX + 1][whichBoard] != 0 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1][whichBoard] % 10) != 1 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1][whichBoard] % 10) != 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
@@ -1571,8 +1555,8 @@ static void updateViableMoves()
                 //EnPassant
                 if (isEnPassantForBlackPossible == true && (selectedPieceX + 1) == enPassantX && selectedPieceY == 4)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
@@ -1585,10 +1569,10 @@ static void updateViableMoves()
         case 30: 
             if (selectedPieceY > 1 && selectedPieceX < 7)
             {
-                if (chessBoard[selectedPieceY - 2][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1] % 10) == 3)
+                if (chessBoard[selectedPieceY - 2][selectedPieceX + 1][whichBoard] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX + 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX + 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 2][selectedPieceX + 1] = true;
@@ -1598,10 +1582,10 @@ static void updateViableMoves()
             }
             if (selectedPieceY > 1 && selectedPieceX > 0)
             {
-                if (chessBoard[selectedPieceY - 2][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1] % 10) == 3)
+                if (chessBoard[selectedPieceY - 2][selectedPieceX - 1][whichBoard] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX - 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX - 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 2][selectedPieceX - 1] = true;
@@ -1611,10 +1595,10 @@ static void updateViableMoves()
             }
             if (selectedPieceY > 0 && selectedPieceX > 1)
             {
-                if (chessBoard[selectedPieceY - 1][selectedPieceX - 2] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2] % 10) == 3)
+                if (chessBoard[selectedPieceY - 1][selectedPieceX - 2][whichBoard] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 2);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 2, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 2] = true;
@@ -1624,10 +1608,10 @@ static void updateViableMoves()
             }
             if (selectedPieceY < 7 && selectedPieceX > 1)
             {
-                if (chessBoard[selectedPieceY + 1][selectedPieceX - 2] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2] % 10) == 3)
+                if (chessBoard[selectedPieceY + 1][selectedPieceX - 2][whichBoard] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 2);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 2, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 2] = true;
@@ -1637,10 +1621,10 @@ static void updateViableMoves()
             }
             if (selectedPieceY < 6 && selectedPieceX > 0)
             {
-                if (chessBoard[selectedPieceY + 2][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1] % 10) == 3)
+                if (chessBoard[selectedPieceY + 2][selectedPieceX - 1][whichBoard] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX - 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX - 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 2][selectedPieceX - 1] = true;
@@ -1650,10 +1634,10 @@ static void updateViableMoves()
             }
             if (selectedPieceY < 6 && selectedPieceX < 7)
             {
-                if (chessBoard[selectedPieceY + 2][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1] % 10) == 3)
+                if (chessBoard[selectedPieceY + 2][selectedPieceX + 1][whichBoard] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX + 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX + 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 2][selectedPieceX + 1] = true;
@@ -1663,10 +1647,10 @@ static void updateViableMoves()
             }
             if (selectedPieceY < 7 && selectedPieceX < 6)
             {
-                if (chessBoard[selectedPieceY + 1][selectedPieceX + 2] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2] % 10) == 3)
+                if (chessBoard[selectedPieceY + 1][selectedPieceX + 2][whichBoard] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 2);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 2, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 2] = true;
@@ -1676,10 +1660,10 @@ static void updateViableMoves()
             }
             if (selectedPieceY > 0 && selectedPieceX < 6)
             {
-                if (chessBoard[selectedPieceY - 1][selectedPieceX + 2] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2] % 10) == 3)
+                if (chessBoard[selectedPieceY - 1][selectedPieceX + 2][whichBoard] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 2);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 2, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 2] = true;
@@ -1692,10 +1676,10 @@ static void updateViableMoves()
         case 31:
             if (selectedPieceY > 1 && selectedPieceX < 7)
             {
-                if (chessBoard[selectedPieceY - 2][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1] % 10) == 2)
+                if (chessBoard[selectedPieceY - 2][selectedPieceX + 1][whichBoard] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX + 1][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX + 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX + 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 2][selectedPieceX + 1] = true;
@@ -1705,10 +1689,10 @@ static void updateViableMoves()
             }
             if (selectedPieceY > 1 && selectedPieceX > 0)
             {
-                if (chessBoard[selectedPieceY - 2][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1] % 10) == 2)
+                if (chessBoard[selectedPieceY - 2][selectedPieceX - 1][whichBoard] == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY - 2][selectedPieceX - 1][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX - 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 2, selectedPieceX - 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 2][selectedPieceX - 1] = true;
@@ -1718,10 +1702,10 @@ static void updateViableMoves()
             }
             if (selectedPieceY > 0 && selectedPieceX > 1)
             {
-                if (chessBoard[selectedPieceY - 1][selectedPieceX - 2] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2] % 10) == 2)
+                if (chessBoard[selectedPieceY - 1][selectedPieceX - 2][whichBoard] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 2][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 2);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 2, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 2] = true;
@@ -1731,10 +1715,10 @@ static void updateViableMoves()
             }
             if (selectedPieceY < 7 && selectedPieceX > 1)
             {
-                if (chessBoard[selectedPieceY + 1][selectedPieceX - 2] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2] % 10) == 2)
+                if (chessBoard[selectedPieceY + 1][selectedPieceX - 2][whichBoard] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 2][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 2);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 2, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 2] = true;
@@ -1744,10 +1728,10 @@ static void updateViableMoves()
             }
             if (selectedPieceY < 6 && selectedPieceX > 0)
             {
-                if (chessBoard[selectedPieceY + 2][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1] % 10) == 2)
+                if (chessBoard[selectedPieceY + 2][selectedPieceX - 1][whichBoard] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX - 1][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX - 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX - 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 2][selectedPieceX - 1] = true;
@@ -1757,10 +1741,10 @@ static void updateViableMoves()
             }
             if (selectedPieceY < 6 && selectedPieceX < 7)
             {
-                if (chessBoard[selectedPieceY + 2][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1] % 10) == 2)
+                if (chessBoard[selectedPieceY + 2][selectedPieceX + 1][whichBoard] == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY + 2][selectedPieceX + 1][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX + 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 2, selectedPieceX + 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 2][selectedPieceX + 1] = true;
@@ -1770,10 +1754,10 @@ static void updateViableMoves()
             }
             if (selectedPieceY < 7 && selectedPieceX < 6)
             {
-                if (chessBoard[selectedPieceY + 1][selectedPieceX + 2] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2] % 10) == 2)
+                if (chessBoard[selectedPieceY + 1][selectedPieceX + 2][whichBoard] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 2][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 2);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 2, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 2] = true;
@@ -1783,10 +1767,10 @@ static void updateViableMoves()
             }
             if (selectedPieceY > 0 && selectedPieceX < 6)
             {
-                if (chessBoard[selectedPieceY - 1][selectedPieceX + 2] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2] % 10) == 2)
+                if (chessBoard[selectedPieceY - 1][selectedPieceX + 2][whichBoard] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 2][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 2);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 2, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 2] = true;
@@ -1802,10 +1786,10 @@ static void updateViableMoves()
             int tempY = selectedPieceY - 1;
             while (tempY >= 0 && tempX <= 7)
             {
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -1813,15 +1797,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -1835,10 +1819,10 @@ static void updateViableMoves()
             tempY = selectedPieceY - 1;
             while (tempY >= 0 && tempX >= 0)
             {
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -1846,15 +1830,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -1868,10 +1852,10 @@ static void updateViableMoves()
             tempY = selectedPieceY + 1;
             while (tempY <= 7 && tempX >= 0)
             {
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -1879,15 +1863,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -1901,10 +1885,10 @@ static void updateViableMoves()
             tempY = selectedPieceY + 1;
             while (tempY <= 7 && tempX <= 7)
             {
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -1912,15 +1896,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -1939,10 +1923,10 @@ static void updateViableMoves()
             int tempY = selectedPieceY - 1;
             while (tempY >= 0 && tempX <= 7)
             {
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -1950,15 +1934,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -1972,10 +1956,10 @@ static void updateViableMoves()
             tempY = selectedPieceY - 1;
             while (tempY >= 0 && tempX >= 0)
             {
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -1983,15 +1967,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2005,10 +1989,10 @@ static void updateViableMoves()
             tempY = selectedPieceY + 1;
             while (tempY <= 7 && tempX >= 0)
             {
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2016,15 +2000,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2038,10 +2022,10 @@ static void updateViableMoves()
             tempY = selectedPieceY + 1;
             while (tempY <= 7 && tempX <= 7)
             {
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2049,15 +2033,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2077,10 +2061,10 @@ static void updateViableMoves()
             int tempY = selectedPieceY - 1;
             while (tempY >= 0 && tempX <= 7)
             {
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2088,15 +2072,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2110,10 +2094,10 @@ static void updateViableMoves()
             tempY = selectedPieceY - 1;
             while (tempY >= 0 && tempX >= 0)
             {
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2121,15 +2105,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2143,10 +2127,10 @@ static void updateViableMoves()
             tempY = selectedPieceY + 1;
             while (tempY <= 7 && tempX >= 0)
             {
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2154,15 +2138,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2176,10 +2160,10 @@ static void updateViableMoves()
             tempY = selectedPieceY + 1;
             while (tempY <= 7 && tempX <= 7)
             {
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2187,15 +2171,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2210,10 +2194,10 @@ static void updateViableMoves()
                 int tempY = selectedPieceY - 1;
                 while (tempY >= 0)
                 {
-                    if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                    if ((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 1 || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 3)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isWhiteKingInCheck == false)
                         {
                             isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2221,15 +2205,15 @@ static void updateViableMoves()
                         isMoveHypothetical = false;
                         break;
                     }
-                    if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                    if (((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 0 && chessBoard[tempY][selectedPieceX][whichBoard] != 0) || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 2)
                     {
                         break;
                     }
 
-                    if (chessBoard[tempY][selectedPieceX] == 0)
+                    if (chessBoard[tempY][selectedPieceX][whichBoard] == 0)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isWhiteKingInCheck == false)
                         {
                             isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2242,10 +2226,10 @@ static void updateViableMoves()
                 //down
                 while (tempY <= 7)
                 {
-                    if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                    if ((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 1 || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 3)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isWhiteKingInCheck == false)
                         {
                             isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2253,15 +2237,15 @@ static void updateViableMoves()
                         isMoveHypothetical = false;
                         break;
                     }
-                    if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                    if (((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 0 && chessBoard[tempY][selectedPieceX][whichBoard] != 0) || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 2)
                     {
                         break;
                     }
 
-                    if (chessBoard[tempY][selectedPieceX] == 0)
+                    if (chessBoard[tempY][selectedPieceX][whichBoard] == 0)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isWhiteKingInCheck == false)
                         {
                             isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2274,10 +2258,10 @@ static void updateViableMoves()
                 int tempX = selectedPieceX - 1;
                 while (tempX >= 0)
                 {
-                    if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                    if ((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 3)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isWhiteKingInCheck == false)
                         {
                             isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2285,15 +2269,15 @@ static void updateViableMoves()
                         isMoveHypothetical = false;
                         break;
                     }
-                    if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                    if (((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 0 && chessBoard[selectedPieceY][tempX][whichBoard] != 0) || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 2)
                     {
                         break;
                     }
 
-                    if (chessBoard[selectedPieceY][tempX] == 0)
+                    if (chessBoard[selectedPieceY][tempX][whichBoard] == 0)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isWhiteKingInCheck == false)
                         {
                             isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2306,10 +2290,10 @@ static void updateViableMoves()
                 //right
                 while (tempX <= 7)
                 {
-                    if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                    if ((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 3)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isWhiteKingInCheck == false)
                         {
                             isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2317,15 +2301,15 @@ static void updateViableMoves()
                         isMoveHypothetical = false;
                         break;
                     }
-                    if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                    if (((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 0 && chessBoard[selectedPieceY][tempX][whichBoard] != 0) || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 2)
                     {
                         break;
                     }
 
-                    if (chessBoard[selectedPieceY][tempX] == 0)
+                    if (chessBoard[selectedPieceY][tempX][whichBoard] == 0)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isWhiteKingInCheck == false)
                         {
                             isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2344,10 +2328,10 @@ static void updateViableMoves()
             int tempY = selectedPieceY - 1;
             while (tempY >= 0 && tempX <= 7)
             {
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2355,15 +2339,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2377,10 +2361,10 @@ static void updateViableMoves()
             tempY = selectedPieceY - 1;
             while (tempY >= 0 && tempX >= 0)
             {
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2388,15 +2372,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2410,10 +2394,10 @@ static void updateViableMoves()
             tempY = selectedPieceY + 1;
             while (tempY <= 7 && tempX >= 0)
             {
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2421,15 +2405,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2443,10 +2427,10 @@ static void updateViableMoves()
             tempY = selectedPieceY + 1;
             while (tempY <= 7 && tempX <= 7)
             {
-                if (((chessBoard[tempY][tempX] % 10) == 0 && chessBoard[tempY][tempX] != 0) || (chessBoard[tempY][tempX] % 10) == 2)
+                if (((chessBoard[tempY][tempX][whichBoard] % 10) == 0 && chessBoard[tempY][tempX][whichBoard] != 0) || (chessBoard[tempY][tempX][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2454,15 +2438,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if ((chessBoard[tempY][tempX] % 10) == 1 || (chessBoard[tempY][tempX] % 10) == 3)
+                if ((chessBoard[tempY][tempX][whichBoard] % 10) == 1 || (chessBoard[tempY][tempX][whichBoard] % 10) == 3)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][tempX] == 0)
+                if (chessBoard[tempY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][tempX] = true;
@@ -2477,10 +2461,10 @@ static void updateViableMoves()
                 int tempY = selectedPieceY - 1;
                 while (tempY >= 0)
                 {
-                    if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                    if (((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 0 && chessBoard[tempY][selectedPieceX][whichBoard] != 0) || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 2)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isBlackKingInCheck == false)
                         {
                             isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2488,15 +2472,15 @@ static void updateViableMoves()
                         isMoveHypothetical = false;
                         break;
                     }
-                    if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                    if ((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 1 || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 3)
                     {
                         break;
                     }
 
-                    if (chessBoard[tempY][selectedPieceX] == 0)
+                    if (chessBoard[tempY][selectedPieceX][whichBoard] == 0)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isBlackKingInCheck == false)
                         {
                             isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2509,10 +2493,10 @@ static void updateViableMoves()
                 //down
                 while (tempY <= 7)
                 {
-                    if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                    if (((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 0 && chessBoard[tempY][selectedPieceX][whichBoard] != 0) || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 2)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isBlackKingInCheck == false)
                         {
                             isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2520,15 +2504,15 @@ static void updateViableMoves()
                         isMoveHypothetical = false;
                         break;
                     }
-                    if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                    if ((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 1 || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 3)
                     {
                         break;
                     }
 
-                    if (chessBoard[tempY][selectedPieceX] == 0)
+                    if (chessBoard[tempY][selectedPieceX][whichBoard] == 0)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isBlackKingInCheck == false)
                         {
                             isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2541,10 +2525,10 @@ static void updateViableMoves()
                 int tempX = selectedPieceX - 1;
                 while (tempX >= 0)
                 {
-                    if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                    if (((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 0 && chessBoard[selectedPieceY][tempX][whichBoard] != 0) || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 2)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isBlackKingInCheck == false)
                         {
                             isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2552,15 +2536,15 @@ static void updateViableMoves()
                         isMoveHypothetical = false;
                         break;
                     }
-                    if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                    if ((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 3)
                     {
                         break;
                     }
 
-                    if (chessBoard[selectedPieceY][tempX] == 0)
+                    if (chessBoard[selectedPieceY][tempX][whichBoard] == 0)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isBlackKingInCheck == false)
                         {
                             isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2573,10 +2557,10 @@ static void updateViableMoves()
                 //right
                 while (tempX <= 7)
                 {
-                    if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                    if (((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 0 && chessBoard[selectedPieceY][tempX][whichBoard] != 0) || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 2)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isBlackKingInCheck == false)
                         {
                             isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2584,15 +2568,15 @@ static void updateViableMoves()
                         isMoveHypothetical = false;
                         break;
                     }
-                    if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                    if ((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 3)
                     {
                         break;
                     }
 
-                    if (chessBoard[selectedPieceY][tempX] == 0)
+                    if (chessBoard[selectedPieceY][tempX][whichBoard] == 0)
                     {
-                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                        updateIsKingInCheck();
+                        makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                        updateIsKingInCheck(whichBoard);
                         if (isBlackKingInCheck == false)
                         {
                             isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2610,10 +2594,10 @@ static void updateViableMoves()
             int tempY = selectedPieceY - 1;
             while (tempY >= 0)
             {
-                if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                if ((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 1 || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2621,15 +2605,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                if (((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 0 && chessBoard[tempY][selectedPieceX][whichBoard] != 0) || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 2)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][selectedPieceX] == 0)
+                if (chessBoard[tempY][selectedPieceX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2642,10 +2626,10 @@ static void updateViableMoves()
             //down
             while (tempY <= 7)
             {
-                if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                if ((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 1 || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2653,15 +2637,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                if (((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 0 && chessBoard[tempY][selectedPieceX][whichBoard] != 0) || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 2)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][selectedPieceX] == 0)
+                if (chessBoard[tempY][selectedPieceX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2674,10 +2658,10 @@ static void updateViableMoves()
             int tempX = selectedPieceX - 1;
             while (tempX >= 0)
             {
-                if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                if ((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2685,15 +2669,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                if (((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 0 && chessBoard[selectedPieceY][tempX][whichBoard] != 0) || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 2)
                 {
                     break;
                 }
 
-                if (chessBoard[selectedPieceY][tempX] == 0)
+                if (chessBoard[selectedPieceY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2706,10 +2690,10 @@ static void updateViableMoves()
             //right
             while (tempX <= 7)
             {
-                if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                if ((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 3)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2717,15 +2701,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                if (((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 0 && chessBoard[selectedPieceY][tempX][whichBoard] != 0) || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 2)
                 {
                     break;
                 }
 
-                if (chessBoard[selectedPieceY][tempX] == 0)
+                if (chessBoard[selectedPieceY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2742,10 +2726,10 @@ static void updateViableMoves()
             int tempY = selectedPieceY - 1;
             while (tempY >= 0)
             {
-                if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                if (((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 0 && chessBoard[tempY][selectedPieceX][whichBoard] != 0) || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2753,15 +2737,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                if ((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 1 || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 3)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][selectedPieceX] == 0)
+                if (chessBoard[tempY][selectedPieceX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2774,10 +2758,10 @@ static void updateViableMoves()
             //down
             while (tempY <= 7)
             {
-                if (((chessBoard[tempY][selectedPieceX] % 10) == 0 && chessBoard[tempY][selectedPieceX] != 0) || (chessBoard[tempY][selectedPieceX] % 10) == 2)
+                if (((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 0 && chessBoard[tempY][selectedPieceX][whichBoard] != 0) || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2785,15 +2769,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if ((chessBoard[tempY][selectedPieceX] % 10) == 1 || (chessBoard[tempY][selectedPieceX] % 10) == 3)
+                if ((chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 1 || (chessBoard[tempY][selectedPieceX][whichBoard] % 10) == 3)
                 {
                     break;
                 }
 
-                if (chessBoard[tempY][selectedPieceX] == 0)
+                if (chessBoard[tempY][selectedPieceX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, tempY, selectedPieceX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[tempY][selectedPieceX] = true;
@@ -2806,10 +2790,10 @@ static void updateViableMoves()
             int tempX = selectedPieceX - 1;
             while (tempX >= 0)
             {
-                if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                if (((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 0 && chessBoard[selectedPieceY][tempX][whichBoard] != 0) || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2817,15 +2801,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                if ((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 3)
                 {
                     break;
                 }
 
-                if (chessBoard[selectedPieceY][tempX] == 0)
+                if (chessBoard[selectedPieceY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2838,10 +2822,10 @@ static void updateViableMoves()
             //right
             while (tempX <= 7)
             {
-                if (((chessBoard[selectedPieceY][tempX] % 10) == 0 && chessBoard[selectedPieceY][tempX] != 0) || (chessBoard[selectedPieceY][tempX] % 10) == 2)
+                if (((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 0 && chessBoard[selectedPieceY][tempX][whichBoard] != 0) || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 2)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2849,15 +2833,15 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                     break;
                 }
-                if ((chessBoard[selectedPieceY][tempX] % 10) == 1 || (chessBoard[selectedPieceY][tempX] % 10) == 3)
+                if ((chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY][tempX][whichBoard] % 10) == 3)
                 {
                     break;
                 }
 
-                if (chessBoard[selectedPieceY][tempX] == 0)
+                if (chessBoard[selectedPieceY][tempX][whichBoard] == 0)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, tempX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY][tempX] = true;
@@ -2871,12 +2855,12 @@ static void updateViableMoves()
 //White King from Upper Right Counterclockwise
         case 100:
         {
-            if (selectedPieceY > 0 && selectedPieceX < 7 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) == 3))
+            if (selectedPieceY > 0 && selectedPieceX < 7 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1][whichBoard] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1][whichBoard] % 10) == 3))
             {
                 if (dangerSquaresForWhiteKing[selectedPieceY - 1][selectedPieceX + 1] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
@@ -2884,12 +2868,12 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                 }
             }
-            if (selectedPieceY > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX] % 10) == 3))
+            if (selectedPieceY > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX][whichBoard] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX][whichBoard] % 10) == 3))
             {
                 if (dangerSquaresForWhiteKing[selectedPieceY - 1][selectedPieceX] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true;
@@ -2897,12 +2881,12 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                 }
             }
-            if (selectedPieceY > 0 && selectedPieceX > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) == 3))
+            if (selectedPieceY > 0 && selectedPieceX > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1][whichBoard] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1][whichBoard] % 10) == 3))
             {
                 if (dangerSquaresForWhiteKing[selectedPieceY - 1][selectedPieceX - 1] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
@@ -2910,12 +2894,12 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                 }
             }
-            if (selectedPieceX > 0 && (chessBoard[selectedPieceY][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY][selectedPieceX - 1] % 10) == 3))
+            if (selectedPieceX > 0 && (chessBoard[selectedPieceY][selectedPieceX - 1][whichBoard] == 0 || (chessBoard[selectedPieceY][selectedPieceX - 1][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY][selectedPieceX - 1][whichBoard] % 10) == 3))
             {
                 if (dangerSquaresForWhiteKing[selectedPieceY][selectedPieceX - 1] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, selectedPieceX - 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, selectedPieceX - 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY][selectedPieceX - 1] = true;
@@ -2923,12 +2907,12 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                 }
             }
-            if (selectedPieceY < 7 && selectedPieceX > 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) == 3))
+            if (selectedPieceY < 7 && selectedPieceX > 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1][whichBoard] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1][whichBoard] % 10) == 3))
             {
                 if (dangerSquaresForWhiteKing[selectedPieceY + 1][selectedPieceX - 1] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
@@ -2936,12 +2920,12 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                 }
             }
-            if (selectedPieceY < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX] % 10) == 3))
+            if (selectedPieceY < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX][whichBoard] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX][whichBoard] % 10) == 3))
             {
                 if (dangerSquaresForWhiteKing[selectedPieceY + 1][selectedPieceX] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true;
@@ -2949,12 +2933,12 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                 }
             }
-            if (selectedPieceY < 7 && selectedPieceX < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) == 3))
+            if (selectedPieceY < 7 && selectedPieceX < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1][whichBoard] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1][whichBoard] % 10) == 3))
             {
                 if (dangerSquaresForWhiteKing[selectedPieceY + 1][selectedPieceX + 1] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
@@ -2962,12 +2946,12 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                 }
             }
-            if (selectedPieceX < 7 && (chessBoard[selectedPieceY][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY][selectedPieceX + 1] % 10) == 1 || (chessBoard[selectedPieceY][selectedPieceX + 1] % 10) == 3))
+            if (selectedPieceX < 7 && (chessBoard[selectedPieceY][selectedPieceX + 1][whichBoard] == 0 || (chessBoard[selectedPieceY][selectedPieceX + 1][whichBoard] % 10) == 1 || (chessBoard[selectedPieceY][selectedPieceX + 1][whichBoard] % 10) == 3))
             {
                 if (dangerSquaresForWhiteKing[selectedPieceY][selectedPieceX + 1] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, selectedPieceX + 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, selectedPieceX + 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isWhiteKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY][selectedPieceX + 1] = true;
@@ -2977,16 +2961,17 @@ static void updateViableMoves()
             }
 
             //Castling
+            updateIsKingInCheck(whichBoard);
             if (isWhiteKingInCheck == false)
             {
-                if (isWhiteKingCastlingPossible == true && chessBoard[7][5] == 0 && chessBoard[7][6] == 0)
+                if (isWhiteKingCastlingPossible == true && chessBoard[7][5][whichBoard] == 0 && chessBoard[7][6][whichBoard] == 0)
                 {
                     if (dangerSquaresForWhiteKing[7][5] == false && dangerSquaresForWhiteKing[7][6] == false)
                     {
                         isChessSquareViableMove[7][6] = true;
                     }
                 }
-                if (isWhiteQueenCastlingPossible == true && chessBoard[7][1] == 0 && chessBoard[7][2] == 0 && chessBoard[7][3] == 0)
+                if (isWhiteQueenCastlingPossible == true && chessBoard[7][1][whichBoard] == 0 && chessBoard[7][2][whichBoard] == 0 && chessBoard[7][3][whichBoard] == 0)
                 {
                     if (dangerSquaresForWhiteKing[7][2] == false && dangerSquaresForWhiteKing[7][3] == false)
                     {
@@ -2999,12 +2984,12 @@ static void updateViableMoves()
 //Black King from Upper Right Counterclockwise
         case 101:
         {
-            if (selectedPieceY > 0 && selectedPieceX < 7 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1] % 10) == 2))
+            if (selectedPieceY > 0 && selectedPieceX < 7 && (chessBoard[selectedPieceY - 1][selectedPieceX + 1][whichBoard] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX + 1][whichBoard] % 10) == 2))
             {
                 if (dangerSquaresForBlackKing[selectedPieceY - 1][selectedPieceX + 1] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX + 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 1][selectedPieceX + 1] = true;
@@ -3012,12 +2997,12 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                 }
             }
-            if (selectedPieceY > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX] % 10) == 2))
+            if (selectedPieceY > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX][whichBoard] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX][whichBoard] % 10) == 2))
             {
                 if (dangerSquaresForBlackKing[selectedPieceY - 1][selectedPieceX] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 1][selectedPieceX] = true;
@@ -3025,12 +3010,12 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                 }
             }
-            if (selectedPieceY > 0 && selectedPieceX > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1] % 10) == 2))
+            if (selectedPieceY > 0 && selectedPieceX > 0 && (chessBoard[selectedPieceY - 1][selectedPieceX - 1][whichBoard] == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY - 1][selectedPieceX - 1][whichBoard] % 10) == 2))
             {
                 if (dangerSquaresForBlackKing[selectedPieceY - 1][selectedPieceX - 1] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY - 1, selectedPieceX - 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY - 1][selectedPieceX - 1] = true;
@@ -3038,12 +3023,12 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                 }
             }
-            if (selectedPieceX > 0 && (chessBoard[selectedPieceY][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY][selectedPieceX - 1] % 10) == 2))
+            if (selectedPieceX > 0 && (chessBoard[selectedPieceY][selectedPieceX - 1][whichBoard] == 0 || (chessBoard[selectedPieceY][selectedPieceX - 1][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY][selectedPieceX - 1][whichBoard] % 10) == 2))
             {
                 if (dangerSquaresForBlackKing[selectedPieceY][selectedPieceX - 1] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, selectedPieceX - 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, selectedPieceX - 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY][selectedPieceX - 1] = true;
@@ -3051,12 +3036,12 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                 }
             }
-            if (selectedPieceY < 7 && selectedPieceX > 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1] % 10) == 2))
+            if (selectedPieceY < 7 && selectedPieceX > 0 && (chessBoard[selectedPieceY + 1][selectedPieceX - 1][whichBoard] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX - 1][whichBoard] % 10) == 2))
             {
                 if (dangerSquaresForBlackKing[selectedPieceY + 1][selectedPieceX - 1] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX - 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 1][selectedPieceX - 1] = true;
@@ -3064,12 +3049,12 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                 }
             }
-            if (selectedPieceY < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX] % 10) == 2))
+            if (selectedPieceY < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX][whichBoard] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX][whichBoard] % 10) == 2))
             {
                 if (dangerSquaresForBlackKing[selectedPieceY + 1][selectedPieceX] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 1][selectedPieceX] = true;
@@ -3077,12 +3062,12 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                 }
             }
-            if (selectedPieceY < 7 && selectedPieceX < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1] % 10) == 2))
+            if (selectedPieceY < 7 && selectedPieceX < 7 && (chessBoard[selectedPieceY + 1][selectedPieceX + 1][whichBoard] == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY + 1][selectedPieceX + 1][whichBoard] % 10) == 2))
             {
                 if (dangerSquaresForBlackKing[selectedPieceY + 1][selectedPieceX + 1] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY + 1, selectedPieceX + 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY + 1][selectedPieceX + 1] = true;
@@ -3090,12 +3075,12 @@ static void updateViableMoves()
                     isMoveHypothetical = false;
                 }
             }
-            if (selectedPieceX < 7 && (chessBoard[selectedPieceY][selectedPieceX + 1] == 0 || (chessBoard[selectedPieceY][selectedPieceX + 1] % 10) == 0 || (chessBoard[selectedPieceY][selectedPieceX + 1] % 10) == 2))
+            if (selectedPieceX < 7 && (chessBoard[selectedPieceY][selectedPieceX + 1][whichBoard] == 0 || (chessBoard[selectedPieceY][selectedPieceX + 1][whichBoard] % 10) == 0 || (chessBoard[selectedPieceY][selectedPieceX + 1][whichBoard] % 10) == 2))
             {
                 if (dangerSquaresForBlackKing[selectedPieceY][selectedPieceX + 1] == false)
                 {
-                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, selectedPieceX + 1);
-                    updateIsKingInCheck();
+                    makeHypotheticalMove(selectedPieceY, selectedPieceX, selectedPieceY, selectedPieceX + 1, whichBoard);
+                    updateIsKingInCheck(whichBoard);
                     if (isBlackKingInCheck == false)
                     {
                         isChessSquareViableMove[selectedPieceY][selectedPieceX + 1] = true;
@@ -3105,16 +3090,17 @@ static void updateViableMoves()
             }
 
             //Castling
+            updateIsKingInCheck(whichBoard);
             if (isBlackKingInCheck == false)
             {
-                if (isBlackKingCastlingPossible == true && chessBoard[0][5] == 0 && chessBoard[0][6] == 0)
+                if (isBlackKingCastlingPossible == true && chessBoard[0][5][whichBoard] == 0 && chessBoard[0][6][whichBoard] == 0)
                 {
                     if (dangerSquaresForBlackKing[0][5] == false && dangerSquaresForBlackKing[0][6] == false)
                     {
                         isChessSquareViableMove[0][6] = true;
                     }
                 }
-                if (isBlackQueenCastlingPossible == true && chessBoard[0][1] == 0 && chessBoard[0][2] == 0 && chessBoard[0][3] == 0)
+                if (isBlackQueenCastlingPossible == true && chessBoard[0][1][whichBoard] == 0 && chessBoard[0][2][whichBoard] == 0 && chessBoard[0][3][whichBoard] == 0)
                 {
                     if (dangerSquaresForBlackKing[0][2] == false && dangerSquaresForBlackKing[0][3] == false)
                     {
@@ -3126,10 +3112,11 @@ static void updateViableMoves()
         break;
         }
     }
-    updateIsKingInCheck();
+    isMoveHypothetical = false;
+    updateIsKingInCheck(whichBoard);
 }
 
-static void isGameEnded()
+static void isGameEnded(int whichBoard)
 {
     isAnyMoveViable = false;
     isChessPieceSelected = true;
@@ -3157,11 +3144,11 @@ static void isGameEnded()
             {
                 if (isWhitesTurn == true)
                 {
-                    if (chessBoard[h][w] != 0 && ((chessBoard[h][w] % 10) == 0 || (chessBoard[h][w] % 10) == 2))
+                    if (chessBoard[h][w][whichBoard] != 0 && ((chessBoard[h][w][whichBoard] % 10) == 0 || (chessBoard[h][w][whichBoard] % 10) == 2))
                     {
                         selectedPieceY = h;
                         selectedPieceX = w;
-                        updateViableMoves();
+                        updateViableMoves(whichBoard);
                         for (int i = 0; i < 8; i++)
                         {
                             for (int j = 0; j < 8; j++)
@@ -3176,11 +3163,11 @@ static void isGameEnded()
                 }
                 if (isWhitesTurn == false)
                 {
-                    if (chessBoard[h][w] != 0 && ((chessBoard[h][w] % 10) == 1 || (chessBoard[h][w] % 10) == 3))
+                    if (chessBoard[h][w][whichBoard] != 0 && ((chessBoard[h][w][whichBoard] % 10) == 1 || (chessBoard[h][w][whichBoard] % 10) == 3))
                     {
                         selectedPieceY = h;
                         selectedPieceX = w;
-                        updateViableMoves();
+                        updateViableMoves(whichBoard);
                         for (int i = 0; i < 8; i++)
                         {
                             for (int j = 0; j < 8; j++)
@@ -3204,7 +3191,7 @@ static void isGameEnded()
         {
             if (isWhiteKingInCheck == true)
             {
-                didHumanWin = false;
+                didWhiteWin = false;
             }
             else
             {
@@ -3215,7 +3202,7 @@ static void isGameEnded()
         {
             if (isBlackKingInCheck == true)
             {
-                didHumanWin = true;
+                didWhiteWin = true;
             }
             else
             {
@@ -3228,6 +3215,256 @@ static void isGameEnded()
     resetIsChessSquareViableMove();
 }
 
+static void evaluation(int whichBoard)
+{
+    normalEvaluation = 0.0f;
+    moreAccurateEvaluation = 0.0f;
+    if (gameEnded == true)
+    {
+        if (isItDraw == true)
+        {
+            normalEvaluation = 0.0f;
+            moreAccurateEvaluation = 0.0f;
+        }
+        else
+        {
+            if (didWhiteWin == true)
+            {
+                normalEvaluation = 1000.0f;
+                moreAccurateEvaluation = 1000.0f;
+            }
+            else
+            {
+                normalEvaluation = -1000.0f;
+                moreAccurateEvaluation = -1000.0f;
+            }
+        }
+    }
+    else
+    {
+        float whiteKingValues[8][8] =
+        {
+            { -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0 },
+            { -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0 },
+            { -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0 },
+            { -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0 },
+            { -2.0, -3.0, -3.0, -4.0, -4.0, -3.0, -3.0, -3.0 },
+            { -1.0, -2.0, -2.0, -2.0, -2.0, -2.0, -2.0, -1.0 },
+            {  2.0,  2.0,  0.0,  0.0,  0.0,  0.0,  2.0,  2.0 },
+            {  2.0,  3.0,  1.0,  0.0,  0.0,  1.0,  3.0,  2.0 }
+        };
+        float blackKingValues[8][8] =
+        {
+            { -2.0, -3.0, -1.0,  0.0,  0.0, -1.0, -3.0, -2.0 },
+            { -2.0, -2.0,  0.0,  0.0,  0.0,  0.0, -2.0, -2.0 },
+            {  1.0,  2.0,  2.0,  2.0,  2.0,  2.0,  2.0,  1.0 },
+            {  2.0,  3.0,  3.0,  4.0,  4.0,  3.0,  3.0,  3.0 },
+            {  3.0,  4.0,  4.0,  5.0,  5.0,  4.0,  4.0,  3.0 },
+            {  3.0,  4.0,  4.0,  5.0,  5.0,  4.0,  4.0,  3.0 },
+            {  3.0,  4.0,  4.0,  5.0,  5.0,  4.0,  4.0,  3.0 },
+            {  3.0,  4.0,  4.0,  5.0,  5.0,  4.0,  4.0,  3.0 }
+        };
+        float whiteQueenValues[8][8] =
+        {
+            {-2.0, -1.0, -1.0, -0.5, -0.5, -1.0, -1.0, -2.0, },
+            {-1.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -1.0, },
+            {-1.0,  0.0,  0.5,  0.5,  0.5,  0.5,  0.0, -1.0, },
+            {-0.5,  0.0,  0.5,  0.5,  0.5,  0.5,  0.0, -0.5, },
+            {-0.5,  0.0,  0.5,  0.5,  0.5,  0.5,  0.0, -0.5, },
+            {-1.0,  0.5,  0.5,  0.5,  0.5,  0.5,  0.0, -1.0, },
+            {-1.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -1.0, },
+            { -2.0, -1.0, -1.0, -0.5, -0.5, -1.0, -1.0, -2.0}
+        };
+        float blackQueenValues[8][8] =
+        {
+            {  2.0,  1.0,  1.0,  0.5,  0.5,  1.0,  1.0,  2.0 },
+            {  1.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1.0 },
+            {  1.0,  0.0, -0.5, -0.5, -0.5, -0.5,  0.0,  1.0 },
+            {  0.5,  0.0, -0.5, -0.5, -0.5, -0.5,  0.0,  0.5 },
+            {  0.5,  0.0, -0.5, -0.5, -0.5, -0.5,  0.0,  0.5 },
+            {  1.0, -0.5, -0.5, -0.5, -0.5, -0.5,  0.0,  1.0 },
+            {  1.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1.0 },
+            {  2.0,  1.0,  1.0,  0.5,  0.5,  1.0,  1.0,  2.0 }
+        };
+        float whiteRookValues[8][8] =
+        {
+            {0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0 },
+            {0.5,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  0.5 },
+            {-0.5,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -0.5 },
+            {-0.5,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -0.5 },
+            {-0.5,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -0.5 },
+            {-0.5,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -0.5 },
+            {-0.5,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -0.5 },
+            {0.0,  0.0,  0.0,  0.5,  0.5,  0.0,  0.0,  0.0 }
+        };
+        float blackRookValues[8][8] =
+        {
+            {  0.0,  0.0,  0.0, -0.5, -0.5,  0.0,  0.0,  0.0 },
+            {  0.5,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.5 },
+            {  0.5,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.5 },
+            {  0.5,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.5 },
+            {  0.5,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.5 },
+            {  0.5,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.5 },
+            { -0.5, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -0.5 },
+            {  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0 }
+        };
+        float whiteBishopValues[8][8] =
+        {
+            {-2.0, -1.0, -1.0, -0.5, -0.5, -1.0, -1.0, -2.0 },
+            {-1.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -1.0},
+            {-1.0,  0.0,  0.5,  0.5,  0.5,  0.5,  0.0, -1.0},
+            {-0.5,  0.0,  0.5,  0.5,  0.5,  0.5,  0.0, -0.5},
+            { 0.0,  0.0,  0.5,  0.5,  0.5,  0.5,  0.0, -0.5},
+            {-1.0,  0.5,  0.5,  0.5,  0.5,  0.5,  0.0, -1.0},
+            {-1.0,  0.0,  0.5,  0.0,  0.0,  0.0,  0.0, -1.0},
+            {-2.0, -1.0, -1.0, -0.5, -0.5, -1.0, -1.0, -2.0}
+        };
+        float blackBishopValues[8][8] =
+        {
+            { 2.0,  1.0,  1.0,  0.5,  0.5,  1.0,  1.0,  2.0 },
+            { 1.0,  0.0, -0.5,  0.0,  0.0,  0.0,  0.0,  1.0 },
+            { 1.0, -0.5, -0.5, -0.5, -0.5, -0.5,  0.0,  1.0 },
+            { 0.0,  0.0, -0.5, -0.5, -0.5, -0.5,  0.0,  0.5 },
+            { 0.5,  0.0, -0.5, -0.5, -0.5, -0.5,  0.0,  0.5 },
+            { 1.0,  0.0, -0.5, -0.5, -0.5, -0.5,  0.0,  1.0 },
+            { 1.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1.0 },
+            { 2.0,  1.0,  1.0,  0.5,  0.5,  1.0,  1.0,  2.0 }
+        };
+        float whiteKnightValues[8][8] =
+        {
+            {-5.0, -4.0, -3.0, -3.0, -3.0, -3.0, -4.0, -5.0},
+            {-4.0, -2.0,  0.0,  0.0,  0.0,  0.0, -2.0, -4.0},
+            {-3.0,  0.0,  1.0,  1.5,  1.5,  1.0,  0.0, -3.0},
+            {-3.0,  0.5,  1.5,  2.0,  2.0,  1.5,  0.5, -3.0},
+            {-3.0,  0.0,  1.5,  2.0,  2.0,  1.5,  0.0, -3.0},
+            {-3.0,  0.5,  1.0,  1.5,  1.5,  1.0,  0.5, -3.0},
+            {-4.0, -2.0,  0.0,  0.5,  0.5,  0.0, -2.0, -4.0},
+            {-5.0, -4.0, -3.0, -3.0, -3.0, -3.0, -4.0, -5.0}
+        };
+        float blackKnightValues[8][8] =
+        {
+            {  5.0,  4.0,  3.0,  3.0,  3.0,  3.0,  4.0,  5.0 },
+            {  4.0,  2.0,  0.0, -0.5, -0.5,  0.0,  2.0,  4.0 },
+            {  3.0, -0.5, -1.0, -1.5, -1.5, -1.0, -0.5,  3.0 },
+            {  3.0,  0.0, -1.5, -2.0, -2.0, -1.5,  0.0,  3.0 },
+            {  3.0, -0.5, -1.5, -2.0, -2.0, -1.5, -0.5,  3.0 },
+            {  3.0,  0.0, -1.0, -1.5, -1.5, -1.0,  0.0,  3.0 },
+            {  4.0,  2.0,  0.0,  0.0,  0.0,  0.0,  2.0,  4.0 },
+            {  5.0,  4.0,  3.0,  3.0,  3.0,  3.0,  4.0,  5.0 },
+        };
+        float whitePawnValues[8][8] =
+        {
+            {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 },
+            {5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0 },
+            {1.0, 1.0, 2.0, 3.0, 3.0, 2.0, 1.0, 1.0 },
+            {0.5, 0.5, 1.0, 2.5, 2.5, 1.0, 0.5, 0.5 },
+            {0.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0, 0.0 },
+            {0.5, -0.5, -1.0, 0.0, 0.0, -1.0, -0.5, 0.5 },
+            {0.5, 1.0, 1.0, -2.0, -2.0, 1.0, 1.0, 0.5 },
+            {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }
+        };
+        float blackPawnValues[8][8] =
+        {
+            { 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0 },
+            { -0.5, -1.0, -1.0,  2.0,  2.0, -1.0, -1.0, -0.5 },
+            { -0.5,  0.5,  1.0,  0.0,  0.0,  1.0,  0.5, -0.5 },
+            { 0.0,  0.0,  0.0, -2.0, -2.0,  0.0,  0.0,  0.0 },
+            { -0.5, -0.5, -1.0, -2.5, -2.5, -1.0, -0.5, -0.5 },
+            { -1.0, -1.0, -2.0, -3.0, -3.0, -2.0, -1.0, -1.0 },
+            { -5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -5.0 },
+            { 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0 },
+        };
+
+        for (int h = 0; h < 8; h++)
+        {
+            for (int w = 0; w < 8; w++)
+            {
+                switch (chessBoard[h][w][whichBoard])
+                {
+                case 10:
+                    normalEvaluation += 1;
+                    moreAccurateEvaluation += 1;
+                    moreAccurateEvaluation += whitePawnValues[h][w];
+                    break;
+                case 11:
+                    normalEvaluation += -1;
+                    moreAccurateEvaluation += -1;
+                    moreAccurateEvaluation += blackPawnValues[h][w];
+                    break;
+                case 30:
+                    normalEvaluation += 3;
+                    moreAccurateEvaluation += 3;
+                    moreAccurateEvaluation += whiteKnightValues[h][w];
+                    break;
+                case 31:
+                    normalEvaluation += -3;
+                    moreAccurateEvaluation += -3;
+                    moreAccurateEvaluation += blackKnightValues[h][w];
+                    break;
+                case 32:
+                    normalEvaluation += 3;
+                    moreAccurateEvaluation += 3;
+                    moreAccurateEvaluation += whiteBishopValues[h][w];
+                    break;
+                case 33:
+                    normalEvaluation += -3;
+                    moreAccurateEvaluation += -3;
+                    moreAccurateEvaluation += blackBishopValues[h][w];
+                    break;
+                case 50:
+                    normalEvaluation += 5;
+                    moreAccurateEvaluation += 5;
+                    moreAccurateEvaluation += whiteRookValues[h][w];
+                    break;
+                case 51:
+                    normalEvaluation += -5;
+                    moreAccurateEvaluation += -5;
+                    moreAccurateEvaluation += blackRookValues[h][w];
+                    break;
+                case 90:
+                    normalEvaluation += 9;
+                    moreAccurateEvaluation += 9;
+                    moreAccurateEvaluation += whiteQueenValues[h][w];
+                    break;
+                case 91:
+                    normalEvaluation += -9;
+                    moreAccurateEvaluation += -9;
+                    moreAccurateEvaluation += blackQueenValues[h][w];
+                    break;
+                case 100:
+                    normalEvaluation += 10;
+                    moreAccurateEvaluation += 10;
+                    moreAccurateEvaluation += whiteKingValues[h][w];
+                    break;
+                case 101:
+                    normalEvaluation += -10;
+                    moreAccurateEvaluation += -10;
+                    moreAccurateEvaluation += blackKingValues[h][w];
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+}
+
+static float moveSearch(int depth)
+{
+    if (gameEnded == true || depth == 0)
+    {
+        return moreAccurateEvaluation;
+    }
+    if (isWhitesTurn == true)
+    {
+        best = -10000;
+    }
+    else
+    {
+        best = 10000;
+    }
+}
+
 static void resetButton()
 {
     isGameStarted = false;
@@ -3238,9 +3475,9 @@ static void resetButton()
     isAITurnedOn = false;
     resetIsChessSquareViableMove();
     isWhitesTurn = true;
-    updateIsKingInCheck();
+    updateIsKingInCheck(0);
     gameEnded = false;
-    didHumanWin = false;
+    didWhiteWin = false;
     isItDraw = false;
     isAnyMoveViable = true;
     isWhiteKingCastlingPossible = true;
@@ -3252,705 +3489,21 @@ static void resetButton()
     enPassantX = 0;
     moveNumber = 0;
     waitForFrame = 0;
-    wasHumanFirstInData = false;
-    chessPositionsDataInc = 0;
-    for (int i = 0; i < 100; i++)
-    {
-        for (int j = 0; j < 66; j++)
-        {
-            chessPositionsData[i][j] = 0;
-        }
-    }
 
     for (int i = 0; i < 12; i++)
     {
         lastMoves[i][0] = i;
         lastMoves[i][1] = i;
     }
+    evaluation(0);
 }
 
-static void nnBoardToInput(std::string mode)
-{
-//387 = 64 + 64 + 64 + 64 + 64 + 64 + 3
-//      P    N    B    R    Q    K    castle, castle, -1 no enpassant, 0-7 collumn in which pawn moved
-//bot pieces = +; opponent pieces = - 
-    std::string board;
-    for (int h = 0; h < 8; h++)
-    {
-        for (int w = 0; w < 8; w++)
-        {
-            switch (chessBoard[h][w])
-            {
-            case 10:
-                if (isWhitesTurn == true)
-                {
-                    board += "1 ";
-                }
-                else
-                {
-                    board += "-1 ";
-                }
-                break;
-            case 11:
-                if (isWhitesTurn == false)
-                {
-                    board += "1 ";
-                }
-                else
-                {
-                    board += "-1 ";
-                }
-                break;
-            default:
-                board += "0 ";
-                break;
-            }
-        }
-    }
-
-    for (int h = 0; h < 8; h++)
-    {
-        for (int w = 0; w < 8; w++)
-        {
-            switch (chessBoard[h][w])
-            {
-            case 30:
-                if (isWhitesTurn == true)
-                {
-                    board += "3 ";
-                }
-                else
-                {
-                    board += "-3 ";
-                }
-                break;
-            case 31:
-                if (isWhitesTurn == false)
-                {
-                    board += "3 ";
-                }
-                else
-                {
-                    board += "-3 ";
-                }
-                break;
-            default:
-                board += "0 ";
-                break;
-            }
-        }
-    }
-
-    for (int h = 0; h < 8; h++)
-    {
-        for (int w = 0; w < 8; w++)
-        {
-            switch (chessBoard[h][w])
-            {
-            case 32:
-                if (isWhitesTurn == true)
-                {
-                    board += "3.2 ";
-                }
-                else
-                {
-                    board += "-3.2 ";
-                }
-                break;
-            case 33:
-                if (isWhitesTurn == false)
-                {
-                    board += "3.2 ";
-                }
-                else
-                {
-                    board += "-3.2 ";
-                }
-                break;
-            default:
-                board += "0 ";
-                break;
-            }
-        }
-    }
-
-    for (int h = 0; h < 8; h++)
-    {
-        for (int w = 0; w < 8; w++)
-        {
-            switch (chessBoard[h][w])
-            {
-            case 50:
-                if (isWhitesTurn == true)
-                {
-                    board += "5 ";
-                }
-                else
-                {
-                    board += "-5 ";
-                }
-                break;
-            case 51:
-                if (isWhitesTurn == false)
-                {
-                    board += "5 ";
-                }
-                else
-                {
-                    board += "-5 ";
-                }
-                break;
-            default:
-                board += "0 ";
-                break;
-            }
-        }
-    }
-
-    for (int h = 0; h < 8; h++)
-    {
-        for (int w = 0; w < 8; w++)
-        {
-            switch (chessBoard[h][w])
-            {
-            case 90:
-                if (isWhitesTurn == true)
-                {
-                    board += "9 ";
-                }
-                else
-                {
-                    board += "-9 ";
-                }
-                break;
-            case 91:
-                if (isWhitesTurn == false)
-                {
-                    board += "9 ";
-                }
-                else
-                {
-                    board += "-9 ";
-                }
-                break;
-            default:
-                board += "0 ";
-                break;
-            }
-        }
-    }
-
-    for (int h = 0; h < 8; h++)
-    {
-        for (int w = 0; w < 8; w++)
-        {
-            switch (chessBoard[h][w])
-            {
-            case 100:
-                if (isWhitesTurn == true)
-                {
-                    board += "10 ";
-                }
-                else
-                {
-                    board += "-10 ";
-                }
-                break;
-            case 101:
-                if (isWhitesTurn == false)
-                {
-                    board += "10 ";
-                }
-                else
-                {
-                    board += "-10 ";
-                }
-                break;
-            default:
-                board += "0 ";
-                break;
-            }
-        }
-    }
-
-    if (isWhitesTurn == true)
-    {
-        if (isWhiteKingCastlingPossible == true)
-        {
-            board += "1 ";
-        }
-        else
-        {
-            board += "0 ";
-        }
-        if (isWhiteQueenCastlingPossible == true)
-        {
-            board += "1 ";
-        }
-        else
-        {
-            board += "0 ";
-        }
-        if (isEnPassantForWhitePossible == true)
-        {
-            board += std::to_string(enPassantX);
-        }
-        else
-        {
-            board += "-1 ";
-        }
-    }
-    else
-    {
-        if (isBlackKingCastlingPossible == true)
-        {
-            board += "1 ";
-        }
-        else
-        {
-            board += "0 ";
-        }
-        if (isBlackQueenCastlingPossible == true)
-        {
-            board += "1 ";
-        }
-        else
-        {
-            board += "0 ";
-        }
-        if (isEnPassantForBlackPossible == true)
-        {
-            std::string temp = std::to_string(enPassantX);
-            temp += " ";
-            board += temp;
-        }
-        else
-        {
-            board += "-1 ";
-        }
-    }
-
-    if (isBackPropagationRunning == true)
-    {
-        for (int i = 0; i < 128; i++)
-        {
-            std::string temp = std::to_string(targetValues[i]);
-            temp += " ";
-            board += temp;
-        }
-    }
-
-    std::string command = "python brain.py " + mode + " " + board;
-
-    if (isBackPropagationRunning == false)
-    {
-        FILE* pipe = _popen(command.c_str(), "r");
-
-        char buffer[2500];
-
-        if (fgets(buffer, sizeof(buffer), pipe) != nullptr)
-        {
-            int helpfulExponent = 2;
-            int helpfulIncrement = 0;
-            for (int i = 0; i < 2500; i++)
-            {
-                if (helpfulIncrement > 127)
-                {
-                    break;
-                }
-                if (buffer[i] != ' ')
-                {
-                    if (buffer[i] != 'N')
-                    {
-                        if (buffer[i] != '.')
-                        {
-                            int digit = buffer[i] - '0';
-                            float value = digit * std::pow(10.0, helpfulExponent);
-                            outNeurons[helpfulIncrement] += value;
-
-                            helpfulExponent--;
-                        }
-                    }
-                    else
-                    {
-                        helpfulExponent = 2;
-                        helpfulIncrement++;
-                    }
-                }
-            }
-        }
-        _pclose(pipe);
-    }
-}
-
-static void nnChessBoardToData(int dataY, int dataX)
-{
-    for (int h = 0; h < 8; h++)
-    {
-        for (int w = 0; w < 8; w++)
-        {
-            chessPositionsData[chessPositionsDataInc][h * 8 + w] = chessBoard[h][w];
-        }
-    }
-    chessPositionsData[chessPositionsDataInc][64] = selectedPieceY * 8 + selectedPieceX;
-    chessPositionsData[chessPositionsDataInc][65] = dataY * 8 + dataX;
-
-    chessPositionsDataInc++;
-}
-
-static void nnCalculateNodeValues(bool isDraw, bool isBestMoveKnown, int playedFrom, int playedTo)
-{
-    if (isDraw == true)
-    {
-        if (isBestMoveKnown == true)
-        {//All values slightly up
-            for (int i = 0; i < 128; i++)
-            {
-                targetValues[i] = maxNeuronValue/10;
-            }
-        }
-        else
-        {//All values slightly up except what was played
-            for (int i = 0; i < 64; i++)
-            {
-                if (i == playedFrom)
-                {
-                    targetValues[i] = 0;
-                }
-                else
-                {
-                    targetValues[i] = maxNeuronValue;
-                }
-            }
-            for (int i = 64; i < 128; i++)
-            {
-                if (i == playedTo)
-                {
-                    targetValues[i] = 0;
-                }
-                else
-                {
-                    targetValues[i] = maxNeuronValue;
-                }
-            }
-        }
-    }
-    else
-    {
-        if (isBestMoveKnown == true)
-        {
-            for (int i = 0; i < 64; i++)
-            {
-                if (i == playedFrom)
-                {
-                    targetValues[i] = maxNeuronValue;
-                }
-                else
-                {
-                    targetValues[i] = maxNeuronValue / 10;
-                }
-            }
-            for (int i = 64; i < 128; i++)
-            {
-                if (i == playedTo)
-                {
-                    targetValues[i] = maxNeuronValue;
-                }
-                else
-                {
-                    targetValues[i] = maxNeuronValue / 10;
-                }
-            }
-        }
-        else
-        {
-            for (int i = 0; i < 64; i++)
-            {
-                if (i == playedFrom)
-                {
-                    targetValues[i] = 0;
-                }
-                else
-                {
-                    targetValues[i] = maxNeuronValue/10;
-                }
-            }
-            for (int i = 64; i < 128; i++)
-            {
-                if (i == playedTo)
-                {
-                    targetValues[i] = 0;
-                }
-                else
-                {
-                    targetValues[i] = maxNeuronValue/10;
-                }
-            }
-        }
-    }
-}
-
-static void nnBackPropagationHandler()
-{
-    isBackPropagationRunning = true;
-
-    bool doLikeFirst = true;
-
-    if (wasHumanFirstInData == false && didHumanWin == true)
-    {
-        doLikeFirst = false;
-    }
-    if (wasHumanFirstInData == true && didHumanWin == false)
-    {
-        doLikeFirst = false;
-    }
-
-    if (isItDraw == true)
-    {
-        if (numberOfGamesPlayed < 100)
-        {
-            for (int i = 0; i < chessPositionsDataInc; i++)
-            {
-                for (int h = 0; h < 8; h++)
-                {
-                    for (int w = 0; w < 8; w++)
-                    {
-                        chessBoard[h][w] = chessPositionsData[i][(h * 8) + w];
-                    }
-                }
-                nnCalculateNodeValues(true, false, chessPositionsData[i][64], chessPositionsData[i][65]);
-                nnBoardToInput("backpropagation");
-            }
-        }
-        else
-        {
-            for (int i = 0; i < chessPositionsDataInc; i++)
-            {
-                for (int h = 0; h < 8; h++)
-                {
-                    for (int w = 0; w < 8; w++)
-                    {
-                        chessBoard[h][w] = chessPositionsData[i][(h * 8) + w];
-                    }
-                }
-                nnCalculateNodeValues(true, true, chessPositionsData[i][64], chessPositionsData[i][65]);
-                nnBoardToInput("backpropagation");
-            }
-        }
-    }
-    else
-    {
-        for (int i = 0; i < chessPositionsDataInc-1; i++)
-        {
-            for (int h = 0; h < 8; h++)
-            {
-                for (int w = 0; w < 8; w++)
-                {
-                    chessBoard[h][w] = chessPositionsData[i][(h * 8) + w];
-                }
-            }
-            if (doLikeFirst == true)
-            {
-                if (i % 2 == 1)
-                {
-                    nnCalculateNodeValues(false ,false, chessPositionsData[i][64], chessPositionsData[i][65]);
-                    nnBoardToInput("backpropagation");
-                }
-                else
-                {
-                    nnCalculateNodeValues(false, true, chessPositionsData[i][64], chessPositionsData[i][65]);
-                    nnBoardToInput("backpropagation");
-                }
-            }
-            else
-            {
-                if (i % 2 == 0)
-                {
-                    nnCalculateNodeValues(false, false, chessPositionsData[i][64], chessPositionsData[i][65]);
-                    nnBoardToInput("backpropagation");
-                }
-                else
-                {
-                    nnCalculateNodeValues(false, true, chessPositionsData[i][64], chessPositionsData[i][65]);
-                    nnBoardToInput("backpropagation");
-                }
-            }
-        }
-    }
-
-
-    
-    isBackPropagationRunning = false;
-}
-
-static void nnWhatMoveToPlay()
-{
-    //Delete OutputFrom which is empty square or opponnent square
-    for (int h = 0; h < 8; h++)
-    {
-        for (int w = 0; w < 8; w++)
-        {
-            if (isWhitesTurn == true)
-            {
-                if (chessBoard[h][w] == 0 || chessBoard[h][w] % 10 == 1 || chessBoard[h][w] % 10 == 3)
-                {
-                    outNeurons[h * 8 + w] = -1;
-                }
-            }
-            else
-            {
-                if (chessBoard[h][w] == 0 || chessBoard[h][w] % 10 == 0 || chessBoard[h][w] % 10 == 2)
-                {
-                    outNeurons[h * 8 + w] = -1;
-                }
-            }
-        }
-    }
-
-    //Delete non viable moves for all pieces
-    for (int h = 0; h < 8; h++)
-    {
-        for (int w = 0; w < 8; w++)
-        {
-            if (isWhitesTurn == true)
-            {
-                if (chessBoard[h][w] != 0 && (chessBoard[h][w] % 10 == 0 || chessBoard[h][w] % 10 == 2))
-                {
-                    isChessPieceSelected = true;
-                    selectedPieceX = w;
-                    selectedPieceY = h;
-                    updateViableMoves();
-                }
-            }
-            else
-            {
-                if (chessBoard[h][w] != 0 && (chessBoard[h][w] % 10 == 1 || chessBoard[h][w] % 10 == 3))
-                {
-                    isChessPieceSelected = true;
-                    selectedPieceX = w;
-                    selectedPieceY = h;
-                    updateViableMoves();
-                }
-            }
-        }
-    }
-    for (int h = 0; h < 8; h++)
-    {
-        for (int w = 0; w < 8; w++)
-        {
-            if (isChessSquareViableMove[h][w] == false)
-            {
-                outNeurons[h * 8 + w + 64] = -1;
-            }
-        }
-    }
-    resetIsChessSquareViableMove();
-
-    bool doesThisPieceHaveMoves = false;
-    bool isAnyMoveLeft = true;
-
-    float valueFrom = -1.0f;
-    int placeFrom = 0;
-
-    int toX = 0;
-    int toY = 0;
-
-    while (doesThisPieceHaveMoves == false)
-    {
-        isAnyMoveLeft = false;
-        valueFrom = -1;
-        placeFrom = 0;
-        for (int i = 0; i < 64; i++)
-        {
-            if (outNeurons[i] > valueFrom)
-            {
-                valueFrom = outNeurons[i];
-                placeFrom = i;
-            }
-        }
-
-        selectedPieceX = placeFrom % 8;
-        placeFrom -= selectedPieceX;
-        selectedPieceY = placeFrom / 8;
-        isChessPieceSelected = true;
-        updateViableMoves();
-        for (int h = 0; h < 8; h++)
-        {
-            for (int w = 0; w < 8; w++)
-            {
-                if (isChessSquareViableMove[h][w] == true)
-                {
-                    doesThisPieceHaveMoves = true;
-                }
-            }
-        }
-        if (doesThisPieceHaveMoves == false)
-        {
-            outNeurons[(selectedPieceY * 8) + selectedPieceX] = -1;
-            resetIsChessSquareViableMove();
-        }
-        for (int i = 0; i < 64; i++)
-        {
-            if (outNeurons[i] > -1)
-            {
-                isAnyMoveLeft = true;
-            }
-        }
-        if (isAnyMoveLeft == false)
-        {
-            isGameEnded();
-        }
-    }
-
-    float valueTo = -1.0f;
-    int placeTo = 0;
-    for (int i = 0; i < 64; i++)
-    {
-        if (outNeurons[i + 64] > valueTo)
-        {
-            valueTo = outNeurons[i + 64];
-            placeTo = i;
-        }
-    }
-
-    toX = placeTo % 8;
-    placeTo -= toX;
-    toY = placeTo / 8;
-    updateViableMoves();
-    while (isChessSquareViableMove[toY][toX] == false)
-    {
-        outNeurons[(toY * 8) + toX + 64] = -1;
-        valueTo = -1;
-        placeTo = 0;
-        for (int i = 0; i < 64; i++)
-        {
-            if (outNeurons[i + 64] > valueTo)
-            {
-                valueTo = outNeurons[i + 64];
-                placeTo = i;
-            }
-        }
-
-        toX = placeTo % 8;
-        placeTo -= toX;
-        toY = placeTo / 8;
-    }
-
-    //Moving piece
-    if (chessPositionsDataInc == 0)
-    {
-        wasHumanFirstInData = false;
-    }
-    pieceMove(toY, toX);
-    waitForFrame = 0;
-}
-
-static void pieceMove(int Y, int X)
+static void pieceMove(int Y, int X, int whichBoard)
 {
     moveNumber++;
-    int whatPieceToMove = chessBoard[selectedPieceY][selectedPieceX];
-    chessBoard[selectedPieceY][selectedPieceX] = 0;
-    chessBoard[Y][X] = whatPieceToMove;
+    int whatPieceToMove = chessBoard[selectedPieceY][selectedPieceX][whichBoard];
+    chessBoard[selectedPieceY][selectedPieceX][whichBoard] = 0;
+    chessBoard[Y][X][whichBoard] = whatPieceToMove;
 
     //Last moves update
     for (int i = 11; i > 0; i--)
@@ -3966,60 +3519,28 @@ static void pieceMove(int Y, int X)
     //Rook move while castling
     if (whatPieceToMove == 100)
     {
-        if (isWhitesTurn == true)
+        if (isWhiteKingCastlingPossible == true && Y == 7 && X == 6)
         {
-            if (isWhiteKingCastlingPossible == true && Y == 0 && X == 1)
-            {
-                chessBoard[0][2] = 50;
-                chessBoard[0][0] = 0;
-            }
-            if (isWhiteQueenCastlingPossible == true && Y == 0 && X == 5)
-            {
-                chessBoard[0][4] = 50;
-                chessBoard[0][7] = 0;
-            }
+            chessBoard[7][5][whichBoard] = 50;
+            chessBoard[7][7][whichBoard] = 0;
         }
-        else
+        if (isWhiteQueenCastlingPossible == true && Y == 7 && X == 2)
         {
-            if (isWhiteKingCastlingPossible == true && Y == 7 && X == 6)
-            {
-                chessBoard[7][5] = 50;
-                chessBoard[7][7] = 0;
-            }
-            if (isWhiteQueenCastlingPossible == true && Y == 7 && X == 2)
-            {
-                chessBoard[7][3] = 50;
-                chessBoard[7][0] = 0;
-            }
+            chessBoard[7][3][whichBoard] = 50;
+            chessBoard[7][0][whichBoard] = 0;
         }
     }
     if (whatPieceToMove == 101)
     {
-        if (isWhitesTurn == true)
+        if (isBlackKingCastlingPossible == true && Y == 0 && X == 6)
         {
-            if (isBlackKingCastlingPossible == true && Y == 7 && X == 1)
-            {
-                chessBoard[7][2] = 51;
-                chessBoard[7][0] = 0;
-            }
-            if (isBlackQueenCastlingPossible == true && Y == 7 && X == 5)
-            {
-                chessBoard[7][4] = 51;
-                chessBoard[7][7] = 0;
-            }
+            chessBoard[0][5][whichBoard] = 51;
+            chessBoard[0][7][whichBoard] = 0;
         }
-        else
+        if (isBlackQueenCastlingPossible == true && Y == 0 && X == 2)
         {
-            if (isBlackKingCastlingPossible == true && Y == 0 && X == 6)
-            {
-                chessBoard[0][5] = 51;
-                chessBoard[0][7] = 0;
-            }
-            if (isBlackQueenCastlingPossible == true && Y == 0 && X == 2)
-            {
-                chessBoard[0][3] = 51;
-                chessBoard[0][0] = 0;
-            }
+            chessBoard[0][3][whichBoard] = 51;
+            chessBoard[0][0][whichBoard] = 0;
         }
     }
 
@@ -4051,14 +3572,14 @@ static void pieceMove(int Y, int X)
     {
         if (isEnPassantForWhitePossible == true && Y == 2)
         {
-            chessBoard[Y + 1][X] = 0;
+            chessBoard[Y + 1][X][whichBoard] = 0;
         }
     }
     if (whatPieceToMove == 11)
     {
         if (isEnPassantForBlackPossible == true && Y == 5)
         {
-            chessBoard[Y - 1][X] = 0;
+            chessBoard[Y - 1][X][whichBoard] = 0;
         }
     }
 
@@ -4091,11 +3612,11 @@ static void pieceMove(int Y, int X)
     if (isWhitesTurn == true) { isWhitesTurn = false; }
     else { isWhitesTurn = true; }
 
-    nnChessBoardToData(Y, X);
     resetIsChessSquareViableMove();
-    updatePawnToQueenPromotion();
-    updateIsKingInCheck();
-    isGameEnded();
+    updatePawnToQueenPromotion(whichBoard);
+    updateIsKingInCheck(whichBoard);
+    isGameEnded(whichBoard);
+    evaluation(whichBoard);
 }
 
 //Main
@@ -4245,7 +3766,7 @@ int main(int, char**)
                 {
                     for (int h = 0; h < 8; h++)
                     {
-                        if (chessBoard[h][w] == 100)
+                        if (chessBoard[h][w][0] == 100)
                         {
                             ImGui::SetCursorPos(ImVec2(((7-w) * 60) + starterBoardPosX, ((7-h) * 60) + starterBoardPosY));
                             ImGui::Image((void*)squarer, ImVec2(my_image_width, my_image_height));
@@ -4259,7 +3780,7 @@ int main(int, char**)
                 {
                     for (int h = 0; h < 8; h++)
                     {
-                        if (chessBoard[h][w] == 101)
+                        if (chessBoard[h][w][0] == 101)
                         {
                             ImGui::SetCursorPos(ImVec2(((7-w) * 60) + starterBoardPosX, ((7-h) * 60) + starterBoardPosY));
                             ImGui::Image((void*)squarer, ImVec2(my_image_width, my_image_height));
@@ -4281,7 +3802,7 @@ int main(int, char**)
                 for (int h = 0; h < 8; h++)
                 {
                     ImGui::SetCursorPos(ImVec2(((7-w) * 60) + starterBoardPosX, ((7-h) * 60) + starterBoardPosY));
-                    switch (chessBoard[h][w])
+                    switch (chessBoard[h][w][0])
                     {
                     default:
                         break;
@@ -4347,6 +3868,19 @@ int main(int, char**)
                 }
             }
 
+            for (int w = 0; w < 8; w++)
+            {
+                for (int h = 0; h < 8; h++)
+                {
+                    ImGui::SetCursorPos(ImVec2((w * 60) + starterBoardPosX, (h * 60) + starterBoardPosY));
+                    if (dangerSquaresForWhiteKing[h][w] == true)
+                    {
+                        ImGui::Image((void*)squarer, ImVec2(my_image_width, my_image_height));
+                    }
+                }
+            }
+
+
             //Drawing Viable Moves
             for (int w = 0; w < 8; w++)
             {
@@ -4367,7 +3901,7 @@ int main(int, char**)
                 {
                     for (int h = 0; h < 8; h++)
                     {
-                        if (chessBoard[h][w] == 100)
+                        if (chessBoard[h][w][0] == 100)
                         {
                             ImGui::SetCursorPos(ImVec2((w * 60) + starterBoardPosX, (h * 60) + starterBoardPosY));
                             ImGui::Image((void*)squarer, ImVec2(my_image_width, my_image_height));
@@ -4381,7 +3915,7 @@ int main(int, char**)
                 {
                     for (int h = 0; h < 8; h++)
                     {
-                        if (chessBoard[h][w] == 101)
+                        if (chessBoard[h][w][0] == 101)
                         {
                             ImGui::SetCursorPos(ImVec2((w * 60) + starterBoardPosX, (h * 60) + starterBoardPosY));
                             ImGui::Image((void*)squarer, ImVec2(my_image_width, my_image_height));
@@ -4403,7 +3937,7 @@ int main(int, char**)
                 for (int h = 0; h < 8; h++)
                 {
                     ImGui::SetCursorPos(ImVec2((w * 60) + starterBoardPosX, (h * 60) + starterBoardPosY));
-                    switch (chessBoard[h][w])
+                    switch (chessBoard[h][w][0])
                     {
                     default:
                         break;
@@ -4452,182 +3986,131 @@ int main(int, char**)
 
         //Buttons and Text
 
+        if (isGameStarted == false)
+        {
+            ImGui::SetCursorPos(ImVec2(my_image_width * 8 + starterBoardPosX + 30, my_image_height * 4 + starterBoardPosY - 30));
+            if (ImGui::Button("Flip Board", ImVec2(100, 60)))
+            {
+                resetIsChessSquareViableMove();
+                isChessPieceSelected = false;
+                if (isBoardFlipped == true)
+                {
+                    isBoardFlipped = false;
+                }
+                else if (isBoardFlipped == false)
+                {
+                    isBoardFlipped = true;
+                }
+            }
+        }
+        ImGui::SetCursorPos(ImVec2(my_image_width * 8 + starterBoardPosX + 160, my_image_height * 4 + starterBoardPosY - 30));
+        if (ImGui::Button("Reset", ImVec2(60, 60)))
+        {
+            resetButton();
+        }
+
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY - 50));
+        ImGui::Text("Input new FEN position:");
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY - 30));
+        ImGui::SetNextItemWidth(480);
+        ImGui::InputText(" ", FENinput, fenLength);
+
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY - 30));
+        if (ImGui::Button("Confirm FEN", ImVec2(100, 20)))
+        {
             if (isGameStarted == false)
             {
-                ImGui::SetCursorPos(ImVec2(my_image_width * 8 + starterBoardPosX + 30, my_image_height * 4 + starterBoardPosY - 30));
-                if (ImGui::Button("Flip Board", ImVec2(100, 60)))
+                fenToBoardPosition(FENinput);
+                for (int i = 0; i < 100; i++)
                 {
-                    if (isBoardFlipped == true)
-                    {
-                        isBoardFlipped = false;
-                    }
-                    else if (isBoardFlipped == false)
-                    {
-                        isBoardFlipped = true;
-                    }
+                    FENinput[i] = 0;
                 }
-            }
-            ImGui::SetCursorPos(ImVec2(my_image_width * 8 + starterBoardPosX + 160, my_image_height * 4 + starterBoardPosY - 30));
-            if (ImGui::Button("Reset", ImVec2(60, 60)))
-            {
-                resetButton();
-            }
-
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY - 50));
-            ImGui::Text("Input new FEN position:");
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY - 30));
-            ImGui::SetNextItemWidth(480);
-            ImGui::InputText(" ", FENinput, fenLength);
-
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY - 30));
-            if (ImGui::Button("Confirm FEN", ImVec2(100, 20)))
-            {
-                if (isGameStarted == false)
-                {
-                    fenToBoardPosition(FENinput);
-                    for (int i = 0; i < 100; i++)
-                    {
-                        FENinput[i] = 0;
-                    }
-                }
-            }
-
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY));
-            ImGui::Checkbox("BackPropagation", &isNNLearningTurnedON);
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY + 30));
-            ImGui::Checkbox("AI Self Learning", &isAILearningByItself);
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY + 90));
-            ImGui::Checkbox("Start AI from here", &isAITurnedOn);
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 35, starterBoardPosY + 122));
-            ImGui::Text("Force game end");
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY + 120));
-            if (ImGui::Button(".", ImVec2(19, 19)))
-            {
-                gameEnded = true;
-                didHumanWin = true;
-                nnBackPropagationHandler();
-                resetButton();
-            }
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 35, starterBoardPosY + 150));
-            ImGui::Text("Number of Games:");
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 160, starterBoardPosY + 150));
-            ImGui::Text("%d", numberOfGamesPlayed);
-
-
-            if (isAITurnedOn == true || isHumanPlayingAgainstAI == true)
-            {
-                isAITurnedOn = true;
-                isHumanPlayingAgainstAI = true;
-                if (isGameStarted == false && isBoardFlipped == true)
-                {
-                    isChessPieceSelected = false;
-                }
-            }
-
-            if (isAITurnedOn == true)
-            {
-                ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 180));
-                ImGui::Text("You are playing against AI.");
-                ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 210));
-                ImGui::Text("Good Luck.");
-            }
-            else
-            {
-                ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 180));
-                ImGui::Text("You are playing against You.");
-            }
-            //Text
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 300));
-            ImGui::Text("Game starts after first move.");
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 320));
-            ImGui::Text("Once the game is started you");
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 340));
-            ImGui::Text("can't switch sides but you");
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 360));
-            ImGui::Text("can at any time turn on AI.");
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 380));
-            ImGui::Text("After that you play against it");
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 400));
-            ImGui::Text("to the end of the game.");
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 505, starterBoardPosY + 495));
-            ImGui::Text("Disclaimer: Pawn promotion is");
-            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 505, starterBoardPosY + 515));
-            ImGui::Text("always to the Queen.");
-            ImGui::Text("%d", moveNumber);
-
-            if (isBoardFlipped == false)
-            {
-                ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY + 485));
-                ImGui::Text("You are playing with white.");
-            }
-            else
-            {
-                ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY + 485));
-                ImGui::Text("You are playing with black.");
-            }
-
-            if (gameEnded == true)
-            {
-                ImGui::SetCursorPos(ImVec2(my_image_width * 8 + starterBoardPosX + 30, my_image_height * 4 + starterBoardPosY - 7));
-                if (didHumanWin == true)
-                {
-                    ImGui::Text("It's a Win :)");
-                }
-                else
-                {
-                    if (isItDraw == true)
-                    {
-                        ImGui::Text("It's a Draw :|");
-                    }
-                    else
-                    {
-                        ImGui::Text("It's a Loss :( ");
-                    }
-                }
-            }
-
-        //AI self learning
-        if (gameEnded == false && isAILearningByItself == true && waitForFrame > 1)
-        {
-            nnBoardToInput("process_input");
-            nnWhatMoveToPlay();
-        }
-        //Backpropagation after game's end
-        if (gameEnded == true && waitForFrame > 1)
-        {
-            numberOfGamesPlayed++;
-            if (isNNLearningTurnedON == true)
-            {
-                nnBackPropagationHandler();
-                resetButton();
-            }
-            else
-            {
-                resetButton();
             }
         }
 
-        if (gameEnded == false && isAILearningByItself == false)
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX + 480 + 10, starterBoardPosY + 90));
+        ImGui::Checkbox("Start AI from here", &isAITurnedOn);
+
+        if (isAITurnedOn == true)
         {
-            if (isAITurnedOn == true && waitForFrame > 1)
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 180));
+            ImGui::Text("You are playing against AI.");
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 210));
+            ImGui::Text("Good Luck.");
+        }
+        else
+        {
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 180));
+            ImGui::Text("You are playing against You.");
+        }
+        //Text
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 300));
+        ImGui::Text("Game starts after first move.");
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 320));
+        ImGui::Text("Once the game is started you");
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 340));
+        ImGui::Text("can't switch sides but you");
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 360));
+        ImGui::Text("can at any time turn on AI.");
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 380));
+        ImGui::Text("After that you play against it");
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX + 510, starterBoardPosY + 400));
+        ImGui::Text("to the end of the game.");
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX + 505, starterBoardPosY + 495));
+        ImGui::Text("Disclaimer: Pawn promotion is");
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX + 505, starterBoardPosY + 515));
+        ImGui::Text("always to the Queen.");
+        ImGui::Text("%d", moveNumber);
+
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX -50, starterBoardPosY + 190));
+        ImGui::Text("%.3g",normalEvaluation);
+        ImGui::SetCursorPos(ImVec2(starterBoardPosX - 50, starterBoardPosY + 220));
+        ImGui::Text("%.3g", moreAccurateEvaluation);
+
+        if (isBoardFlipped == false)
+        {
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY + 485));
+            ImGui::Text("You are playing with white.");
+        }
+        else
+        {
+            ImGui::SetCursorPos(ImVec2(starterBoardPosX, starterBoardPosY + 485));
+            ImGui::Text("You are playing with black.");
+        }
+
+        if (gameEnded == true)
+        {
+            ImGui::SetCursorPos(ImVec2(my_image_width * 8 + starterBoardPosX + 30, my_image_height * 4 + starterBoardPosY - 7));
+            if (didWhiteWin == true)
             {
-                if (isBoardFlipped == false)
+                ImGui::Text("It's a Win :)");
+            }
+            else
+            {
+                if (isItDraw == true)
                 {
-                    if (isWhitesTurn == false)
-                    {
-                        nnBoardToInput("process_input");
-                        nnWhatMoveToPlay();
-                    }   
+                    ImGui::Text("It's a Draw :|");
                 }
                 else
                 {
-                    if (isWhitesTurn == true)
-                    {
-                        nnBoardToInput("process_input");
-                        nnWhatMoveToPlay();
-                    }
+                    ImGui::Text("It's a Loss :( ");
                 }
             }
+        }
+        if (gameEnded == false && isAITurnedOn == true)
+        {
+            if (isWhitesTurn == true && isBoardFlipped == true)
+            {
+                //thinkAndPlayMove();
+            }
+            if (isWhitesTurn == false && isBoardFlipped == false)
+            {
+                //thinkAndPlayMove();
+            }
+        }
+        
+        if (gameEnded == false)
+        {
             //Moving Chess Pieces
             ImVec2 mousePosition = ImGui::GetMousePos();
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && mousePosition.x > 80 && mousePosition.x < 560 && mousePosition.y > 100 && mousePosition.y < 580)
@@ -4643,11 +4126,7 @@ int main(int, char**)
 
                 if (isChessPieceSelected == true && isChessSquareViableMove[Y][X] == true)
                 {
-                    if (chessPositionsDataInc == 0)
-                    {
-                        wasHumanFirstInData = true;
-                    }
-                    pieceMove(Y, X);
+                    pieceMove(Y, X, 0);
                 }
 
                 //Piece Deselection
@@ -4661,20 +4140,20 @@ int main(int, char**)
                 if (isChessPieceSelected == false)
                 {
                     //White
-                    if (isWhitesTurn == true && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 0 || chessBoard[Y][X] % 10 == 2))
+                    if (isWhitesTurn == true && chessBoard[Y][X][0] != 0 && (chessBoard[Y][X][0] % 10 == 0 || chessBoard[Y][X][0] % 10 == 2))
                     {
                         isChessPieceSelected = true;
                         selectedPieceX = X;
                         selectedPieceY = Y;
-                        updateViableMoves();
+                        updateViableMoves(0);
                     }
                     //Black
-                    if (isWhitesTurn == false && chessBoard[Y][X] != 0 && (chessBoard[Y][X] % 10 == 1 || chessBoard[Y][X] % 10 == 3))
+                    if (isWhitesTurn == false && chessBoard[Y][X][0] != 0 && (chessBoard[Y][X][0] % 10 == 1 || chessBoard[Y][X][0] % 10 == 3))
                     {
                         isChessPieceSelected = true;
                         selectedPieceX = X;
                         selectedPieceY = Y;
-                        updateViableMoves();
+                        updateViableMoves(0);
                     }
                 }
                 waitForFrame = 0;

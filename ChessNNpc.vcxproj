@@ -217,9 +217,6 @@
     <Image Include="..\..\..\..\Desktop\Chess png\wrl.png" />
     <Image Include="..\..\..\..\Desktop\Chess png\wrt.png" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="brain.py" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
