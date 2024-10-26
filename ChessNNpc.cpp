@@ -56,7 +56,7 @@ const int fenLength = 100;
 char FENinput[fenLength] = "";
 bool isHumanPlayingAgainstAI = false;
 bool isAITurnedOn = false;
-bool isWhitesTurn = true;
+bool isWhitesTurn[9];
 bool gameEnded = false;
 bool didWhiteWin = false;
 bool isItDraw = false;
@@ -83,15 +83,34 @@ const int moveLimit = 99;
 int lastMoves[12][2];
 int maxIntValue = 2147483647;
 
-float normalEvaluation = 0.0f;
-float moreAccurateEvaluation = 0.0f;
+float normalEvaluation[9];
+float moreAccurateEvaluation[9];
 
-int maxDepth = 8;
-float best = 0;
-int bestMoveFromX = 0;
-int bestMoveFromY = 0;
-int bestMoveToX = 0;
-int bestMoveToY = 0;
+bool isMoveSearchRunning = false;
+const int maxDepth = 7; //default 8?
+float best[maxDepth+1];
+int bestMoveFromX[maxDepth + 2];
+int bestMoveFromY[maxDepth + 2];
+int bestMoveToX[maxDepth + 2];
+int bestMoveToY[maxDepth + 2];
+
+bool softgameEnded;
+bool softdidWhiteWin;
+bool softisItDraw;
+bool softisWhiteKingCastlingPossible;
+bool softisWhiteQueenCastlingPossible;
+bool softisBlackKingCastlingPossible;
+bool softisBlackQueenCastlingPossible;
+bool softisEnPassantForWhitePossible;
+bool softisEnPassantForBlackPossible;
+int softBoard[8][8];
+int softenPassantX;
+int softlastMoves[12][2];
+bool softdangerSquaresForWhiteKing[8][8];
+bool softisWhiteKingInCheck;
+bool softdangerSquaresForBlackKing[8][8];
+bool softisBlackKingInCheck;
+bool softisWhitesTurn;
 
 //White 0 ;=; Black 1
 //Pawn +10 +11
@@ -309,7 +328,7 @@ static void fenToBoardPosition(char FenPos[fenLength])
     }
     if (FenPos[i + 1] == 'b')
     {
-        isWhitesTurn = false;
+        isWhitesTurn[0] = false;
     }
     i += 3;
 
@@ -3120,21 +3139,19 @@ static void isGameEnded(int whichBoard)
 {
     isAnyMoveViable = false;
     isChessPieceSelected = true;
-    if (moveNumber >= moveLimit)
-    {
-        gameEnded = true;
-    }
 
-    //repetition move draw
-    if (lastMoves[0][0] == lastMoves[4][0] && lastMoves[4][0] == lastMoves[8][0] && lastMoves[0][1] == lastMoves[4][1] && lastMoves[4][1] == lastMoves[8][1])
+    if (isMoveSearchRunning == false)
     {
-        if (lastMoves[1][0] == lastMoves[5][0] && lastMoves[5][0] == lastMoves[9][0] && lastMoves[1][1] == lastMoves[5][1] && lastMoves[5][1] == lastMoves[9][1])
+        //repetition move draw
+        if (lastMoves[0][0] == lastMoves[4][0] && lastMoves[4][0] == lastMoves[8][0] && lastMoves[0][1] == lastMoves[4][1] && lastMoves[4][1] == lastMoves[8][1])
         {
-            gameEnded = true;
-            isItDraw = true;
+            if (lastMoves[1][0] == lastMoves[5][0] && lastMoves[5][0] == lastMoves[9][0] && lastMoves[1][1] == lastMoves[5][1] && lastMoves[5][1] == lastMoves[9][1])
+            {
+                gameEnded = true;
+                isItDraw = true;
+            }
         }
     }
-
 
     if (gameEnded == false)
     {
@@ -3142,7 +3159,7 @@ static void isGameEnded(int whichBoard)
         {
             for (int w = 0; w < 8; w++)
             {
-                if (isWhitesTurn == true)
+                if (isWhitesTurn[whichBoard] == true)
                 {
                     if (chessBoard[h][w][whichBoard] != 0 && ((chessBoard[h][w][whichBoard] % 10) == 0 || (chessBoard[h][w][whichBoard] % 10) == 2))
                     {
@@ -3161,7 +3178,7 @@ static void isGameEnded(int whichBoard)
                         }
                     }
                 }
-                if (isWhitesTurn == false)
+                if (isWhitesTurn[whichBoard] == false)
                 {
                     if (chessBoard[h][w][whichBoard] != 0 && ((chessBoard[h][w][whichBoard] % 10) == 1 || (chessBoard[h][w][whichBoard] % 10) == 3))
                     {
@@ -3187,7 +3204,7 @@ static void isGameEnded(int whichBoard)
     {
         gameEnded = true;
         waitForFrame = 0;
-        if (isWhitesTurn == true)
+        if (isWhitesTurn[whichBoard] == true)
         {
             if (isWhiteKingInCheck == true)
             {
@@ -3215,28 +3232,28 @@ static void isGameEnded(int whichBoard)
     resetIsChessSquareViableMove();
 }
 
-static void evaluation(int whichBoard)
+static float evaluation(int whichBoard)
 {
-    normalEvaluation = 0.0f;
-    moreAccurateEvaluation = 0.0f;
+    normalEvaluation[whichBoard] = 0.0f;
+    moreAccurateEvaluation[whichBoard] = 0.0f;
     if (gameEnded == true)
     {
         if (isItDraw == true)
         {
-            normalEvaluation = 0.0f;
-            moreAccurateEvaluation = 0.0f;
+            normalEvaluation[whichBoard] = 0.0f;
+            moreAccurateEvaluation[whichBoard] = 0.0f;
         }
         else
         {
             if (didWhiteWin == true)
             {
-                normalEvaluation = 1000.0f;
-                moreAccurateEvaluation = 1000.0f;
+                normalEvaluation[whichBoard] = 1000.0f;
+                moreAccurateEvaluation[whichBoard] = 1000.0f;
             }
             else
             {
-                normalEvaluation = -1000.0f;
-                moreAccurateEvaluation = -1000.0f;
+                normalEvaluation[whichBoard] = -1000.0f;
+                moreAccurateEvaluation[whichBoard] = -1000.0f;
             }
         }
     }
@@ -3382,64 +3399,64 @@ static void evaluation(int whichBoard)
                 switch (chessBoard[h][w][whichBoard])
                 {
                 case 10:
-                    normalEvaluation += 1;
-                    moreAccurateEvaluation += 1;
-                    moreAccurateEvaluation += whitePawnValues[h][w];
+                    normalEvaluation[whichBoard] += 1;
+                    moreAccurateEvaluation[whichBoard] += 1;
+                    moreAccurateEvaluation[whichBoard] += whitePawnValues[h][w];
                     break;
                 case 11:
-                    normalEvaluation += -1;
-                    moreAccurateEvaluation += -1;
-                    moreAccurateEvaluation += blackPawnValues[h][w];
+                    normalEvaluation[whichBoard] += -1;
+                    moreAccurateEvaluation[whichBoard] += -1;
+                    moreAccurateEvaluation[whichBoard] += blackPawnValues[h][w];
                     break;
                 case 30:
-                    normalEvaluation += 3;
-                    moreAccurateEvaluation += 3;
-                    moreAccurateEvaluation += whiteKnightValues[h][w];
+                    normalEvaluation[whichBoard] += 3;
+                    moreAccurateEvaluation[whichBoard] += 3;
+                    moreAccurateEvaluation[whichBoard] += whiteKnightValues[h][w];
                     break;
                 case 31:
-                    normalEvaluation += -3;
-                    moreAccurateEvaluation += -3;
-                    moreAccurateEvaluation += blackKnightValues[h][w];
+                    normalEvaluation[whichBoard] += -3;
+                    moreAccurateEvaluation[whichBoard] += -3;
+                    moreAccurateEvaluation[whichBoard] += blackKnightValues[h][w];
                     break;
                 case 32:
-                    normalEvaluation += 3;
-                    moreAccurateEvaluation += 3;
-                    moreAccurateEvaluation += whiteBishopValues[h][w];
+                    normalEvaluation[whichBoard] += 3;
+                    moreAccurateEvaluation[whichBoard] += 3;
+                    moreAccurateEvaluation[whichBoard] += whiteBishopValues[h][w];
                     break;
                 case 33:
-                    normalEvaluation += -3;
-                    moreAccurateEvaluation += -3;
-                    moreAccurateEvaluation += blackBishopValues[h][w];
+                    normalEvaluation[whichBoard] += -3;
+                    moreAccurateEvaluation[whichBoard] += -3;
+                    moreAccurateEvaluation[whichBoard] += blackBishopValues[h][w];
                     break;
                 case 50:
-                    normalEvaluation += 5;
-                    moreAccurateEvaluation += 5;
-                    moreAccurateEvaluation += whiteRookValues[h][w];
+                    normalEvaluation[whichBoard] += 5;
+                    moreAccurateEvaluation[whichBoard] += 5;
+                    moreAccurateEvaluation[whichBoard] += whiteRookValues[h][w];
                     break;
                 case 51:
-                    normalEvaluation += -5;
-                    moreAccurateEvaluation += -5;
-                    moreAccurateEvaluation += blackRookValues[h][w];
+                    normalEvaluation[whichBoard] += -5;
+                    moreAccurateEvaluation[whichBoard] += -5;
+                    moreAccurateEvaluation[whichBoard] += blackRookValues[h][w];
                     break;
                 case 90:
-                    normalEvaluation += 9;
-                    moreAccurateEvaluation += 9;
-                    moreAccurateEvaluation += whiteQueenValues[h][w];
+                    normalEvaluation[whichBoard] += 9;
+                    moreAccurateEvaluation[whichBoard] += 9;
+                    moreAccurateEvaluation[whichBoard] += whiteQueenValues[h][w];
                     break;
                 case 91:
-                    normalEvaluation += -9;
-                    moreAccurateEvaluation += -9;
-                    moreAccurateEvaluation += blackQueenValues[h][w];
+                    normalEvaluation[whichBoard] += -9;
+                    moreAccurateEvaluation[whichBoard] += -9;
+                    moreAccurateEvaluation[whichBoard] += blackQueenValues[h][w];
                     break;
                 case 100:
-                    normalEvaluation += 10;
-                    moreAccurateEvaluation += 10;
-                    moreAccurateEvaluation += whiteKingValues[h][w];
+                    normalEvaluation[whichBoard] += 10;
+                    moreAccurateEvaluation[whichBoard] += 10;
+                    moreAccurateEvaluation[whichBoard] += whiteKingValues[h][w];
                     break;
                 case 101:
-                    normalEvaluation += -10;
-                    moreAccurateEvaluation += -10;
-                    moreAccurateEvaluation += blackKingValues[h][w];
+                    normalEvaluation[whichBoard] += -10;
+                    moreAccurateEvaluation[whichBoard] += -10;
+                    moreAccurateEvaluation[whichBoard] += blackKingValues[h][w];
                     break;
                 default:
                     break;
@@ -3447,22 +3464,189 @@ static void evaluation(int whichBoard)
             }
         }
     }
+    return moreAccurateEvaluation[whichBoard];
 }
 
-static float moveSearch(int depth)
+static float moveSearch(int depth) 
 {
-    if (gameEnded == true || depth == 0)
+    if (gameEnded == true || depth == 1)
     {
-        return moreAccurateEvaluation;
-    }
-    if (isWhitesTurn == true)
-    {
-        best = -10000;
+        return evaluation(1);
     }
     else
     {
-        best = 10000;
+        if (depth == maxDepth)
+        {
+            for (int i = maxDepth; i > 1; i -= 2)
+            {
+                isWhitesTurn[i] = isWhitesTurn[0];
+                isWhitesTurn[i - 1] = !isWhitesTurn[0];
+            }
+        }
+
+        if (isWhitesTurn[depth] == true)
+        {
+            best[depth] = -10000;
+
+            for (int h = 0; h < 8; h++)
+            {
+                for (int w = 0; w < 8; w++)
+                {
+                    for (int h0 = 0; h0 < 8; h0++)
+                    {
+                        for (int w0 = 0; w0 < 8; w0++)
+                        {
+                            if (depth == maxDepth)
+                            {
+                                chessBoard[h0][w0][depth] = chessBoard[h0][w0][0];
+                            }
+                            else
+                            {
+                                chessBoard[h0][w0][depth] = chessBoard[h0][w0][depth + 1];
+                            }
+                        }
+                    }
+
+                    if (chessBoard[h][w][depth] != 0 && (chessBoard[h][w][depth] % 10 == 2 || chessBoard[h][w][depth] % 10 == 0))
+                    {
+                        isChessPieceSelected = true;
+                        selectedPieceX = w;
+                        selectedPieceY = h;
+                        updateViableMoves(depth);
+
+                        for (int h2 = 0; h2 < 8; h2++)
+                        {
+                            for (int w2 = 0; w2 < 8; w2++)
+                            {
+
+                                for (int h0 = 0; h0 < 8; h0++)
+                                {
+                                    for (int w0 = 0; w0 < 8; w0++)
+                                    {
+                                        if (depth == maxDepth)
+                                        {
+                                            chessBoard[h0][w0][depth] = chessBoard[h0][w0][0];
+                                        }
+                                        else
+                                        {
+                                            chessBoard[h0][w0][depth] = chessBoard[h0][w0][depth + 1];
+                                        }
+                                    }
+                                }
+
+                                if (isChessSquareViableMove[h2][w2] == true)
+                                {
+                                    pieceMove(h2, w2, depth);
+
+                                    float eval = evaluation(depth);
+
+                                    float lastEval = 0;
+
+                                    if (eval > best[depth])
+                                    {
+                                        lastEval = moveSearch(depth - 1);
+                                    }
+
+                                    //float realEval = eval + lastEval;
+
+                                    if (lastEval > best[depth])
+                                    {
+                                        best[depth] = lastEval;
+                                        bestMoveFromX[depth] = w;
+                                        bestMoveFromY[depth] = h;
+                                        bestMoveToX[depth] = w2;
+                                        bestMoveToY[depth] = h2;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            best[depth] = 10000;
+
+            for (int h = 0; h < 8; h++)
+            {
+                for (int w = 0; w < 8; w++)
+                {
+
+                    for (int h0 = 0; h0 < 8; h0++)
+                    {
+                        for (int w0 = 0; w0 < 8; w0++)
+                        {
+                            if (depth == maxDepth)
+                            {
+                                chessBoard[h0][w0][depth] = chessBoard[h0][w0][0];
+                            }
+                            else
+                            {
+                                chessBoard[h0][w0][depth] = chessBoard[h0][w0][depth + 1];
+                            }
+                        }
+                    }
+
+
+                    if (chessBoard[h][w][depth] != 0 && (chessBoard[h][w][depth] % 10 == 1 || chessBoard[h][w][depth] % 10 == 3))
+                    {
+                        isChessPieceSelected = true;
+                        selectedPieceX = w;
+                        selectedPieceY = h;
+                        updateViableMoves(depth);
+
+                        for (int h2 = 0; h2 < 8; h2++)
+                        {
+                            for (int w2 = 0; w2 < 8; w2++)
+                            {
+
+                                for (int h0 = 0; h0 < 8; h0++)
+                                {
+                                    for (int w0 = 0; w0 < 8; w0++)
+                                    {
+                                        if (depth == maxDepth)
+                                        {
+                                            chessBoard[h0][w0][depth] = chessBoard[h0][w0][0];
+                                        }
+                                        else
+                                        {
+                                            chessBoard[h0][w0][depth] = chessBoard[h0][w0][depth + 1];
+                                        }
+                                    }
+                                }
+
+                                if (isChessSquareViableMove[h2][w2] == true)
+                                {
+                                    pieceMove(h2, w2, depth);
+
+                                    float eval = evaluation(depth);
+                                    float lastEval = 0;
+
+                                    if (eval < best[depth])
+                                    {
+                                        lastEval = moveSearch(depth - 1);
+                                    }
+
+                                    //float realEval = eval + lastEval;
+
+                                    if (lastEval < best[depth])
+                                    {
+                                        best[depth] = lastEval;
+                                        bestMoveFromX[depth] = w;
+                                        bestMoveFromY[depth] = h;
+                                        bestMoveToX[depth] = w2;
+                                        bestMoveToY[depth] = h2;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
+    return best[depth];
 }
 
 static void resetButton()
@@ -3474,7 +3658,7 @@ static void resetButton()
     isHumanPlayingAgainstAI = false;
     isAITurnedOn = false;
     resetIsChessSquareViableMove();
-    isWhitesTurn = true;
+    isWhitesTurn[0] = true;
     updateIsKingInCheck(0);
     gameEnded = false;
     didWhiteWin = false;
@@ -3498,9 +3682,80 @@ static void resetButton()
     evaluation(0);
 }
 
+static void softLoad()
+{
+    gameEnded = softgameEnded;
+    didWhiteWin = softdidWhiteWin;
+    isItDraw = softisItDraw;
+    isWhiteKingCastlingPossible = softisWhiteKingCastlingPossible;
+    isWhiteQueenCastlingPossible = softisWhiteQueenCastlingPossible;
+    isBlackKingCastlingPossible = softisBlackKingCastlingPossible;
+    isBlackQueenCastlingPossible = softisBlackQueenCastlingPossible;
+    isEnPassantForWhitePossible = softisEnPassantForWhitePossible;
+    isEnPassantForBlackPossible = softisEnPassantForBlackPossible;
+
+    for (int h = 0; h < 8; h++)
+    {
+        for (int w = 0; w < 8; w++)
+        {
+            chessBoard[h][w][0] = softBoard[h][w];
+            dangerSquaresForWhiteKing[h][w] = softdangerSquaresForWhiteKing[h][w];
+            dangerSquaresForBlackKing[h][w] = softdangerSquaresForBlackKing[h][w];
+        }
+    }
+
+    for (int i = 0; i < 12; i++)
+    {
+        lastMoves[i][0] = softlastMoves[i][0];
+        lastMoves[i][1] = softlastMoves[i][1];
+    }
+
+    enPassantX = softenPassantX;
+    isWhiteKingInCheck = softisWhiteKingInCheck;
+    isBlackKingInCheck = softisBlackKingInCheck;
+    isWhitesTurn[0] = softisWhitesTurn;
+}
+
+static void softSave()
+{
+    softgameEnded = gameEnded;
+    softdidWhiteWin = didWhiteWin;
+    softisItDraw = isItDraw;
+    softisWhiteKingCastlingPossible = isWhiteKingCastlingPossible;
+    softisWhiteQueenCastlingPossible = isWhiteQueenCastlingPossible;
+    softisBlackKingCastlingPossible = isBlackKingCastlingPossible;
+    softisBlackQueenCastlingPossible = isBlackQueenCastlingPossible;
+    softisEnPassantForWhitePossible = isEnPassantForWhitePossible;
+    softisEnPassantForBlackPossible = isEnPassantForBlackPossible;
+
+    for (int h = 0; h < 8; h++)
+    {
+        for (int w = 0; w < 8; w++)
+        {
+            softBoard[h][w] = chessBoard[h][w][0];
+            softdangerSquaresForWhiteKing[h][w] = dangerSquaresForWhiteKing[h][w];
+            softdangerSquaresForBlackKing[h][w] = dangerSquaresForBlackKing[h][w];
+        }
+    }
+
+    for (int i = 0; i < 12; i++)
+    {
+        softlastMoves[i][0] = lastMoves[i][0];
+        softlastMoves[i][1] = lastMoves[i][1];
+    }
+
+    softenPassantX = enPassantX;
+    softisWhiteKingInCheck = isWhiteKingInCheck;
+    softisBlackKingInCheck = isBlackKingInCheck;
+    softisWhitesTurn = isWhitesTurn[0];
+}
+
 static void pieceMove(int Y, int X, int whichBoard)
 {
-    moveNumber++;
+    if (isMoveSearchRunning == false)
+    {
+        moveNumber++;
+    }
     int whatPieceToMove = chessBoard[selectedPieceY][selectedPieceX][whichBoard];
     chessBoard[selectedPieceY][selectedPieceX][whichBoard] = 0;
     chessBoard[Y][X][whichBoard] = whatPieceToMove;
@@ -3609,8 +3864,8 @@ static void pieceMove(int Y, int X, int whichBoard)
         isEnPassantForWhitePossible = false;
     }
 
-    if (isWhitesTurn == true) { isWhitesTurn = false; }
-    else { isWhitesTurn = true; }
+    if (isWhitesTurn[whichBoard] == true) { isWhitesTurn[whichBoard] = false; }
+    else { isWhitesTurn[whichBoard] = true; }
 
     resetIsChessSquareViableMove();
     updatePawnToQueenPromotion(whichBoard);
@@ -3868,19 +4123,6 @@ int main(int, char**)
                 }
             }
 
-            for (int w = 0; w < 8; w++)
-            {
-                for (int h = 0; h < 8; h++)
-                {
-                    ImGui::SetCursorPos(ImVec2((w * 60) + starterBoardPosX, (h * 60) + starterBoardPosY));
-                    if (dangerSquaresForWhiteKing[h][w] == true)
-                    {
-                        ImGui::Image((void*)squarer, ImVec2(my_image_width, my_image_height));
-                    }
-                }
-            }
-
-
             //Drawing Viable Moves
             for (int w = 0; w < 8; w++)
             {
@@ -4063,9 +4305,9 @@ int main(int, char**)
         ImGui::Text("%d", moveNumber);
 
         ImGui::SetCursorPos(ImVec2(starterBoardPosX -50, starterBoardPosY + 190));
-        ImGui::Text("%.3g",normalEvaluation);
+        ImGui::Text("%.3g",normalEvaluation[0]);
         ImGui::SetCursorPos(ImVec2(starterBoardPosX - 50, starterBoardPosY + 220));
-        ImGui::Text("%.3g", moreAccurateEvaluation);
+        ImGui::Text("%.3g", moreAccurateEvaluation[0]);
 
         if (isBoardFlipped == false)
         {
@@ -4097,15 +4339,53 @@ int main(int, char**)
                 }
             }
         }
-        if (gameEnded == false && isAITurnedOn == true)
+        if (gameEnded == false && isAITurnedOn == true && waitForFrame > 1)
         {
-            if (isWhitesTurn == true && isBoardFlipped == true)
+            if (isWhitesTurn[0] == true && isBoardFlipped == true)
             {
-                //thinkAndPlayMove();
+                softSave();
+                isMoveSearchRunning == true;
+
+                moveSearch(maxDepth);
+
+                softLoad();
+                isChessPieceSelected = true;
+                selectedPieceX = bestMoveFromX[maxDepth];
+                selectedPieceY = bestMoveFromY[maxDepth];
+
+                std::cout << bestMoveFromY[maxDepth] << " " << bestMoveFromX[maxDepth];
+                std::cout << "\n";
+                std::cout << bestMoveToY[maxDepth] << " " << bestMoveToX[maxDepth];
+                std::cout << "\n\n";
+
+                updateViableMoves(0);
+
+                isMoveSearchRunning == false;
+
+                pieceMove(bestMoveFromY[maxDepth], bestMoveFromX[maxDepth], 0);
             }
-            if (isWhitesTurn == false && isBoardFlipped == false)
+            if (isWhitesTurn[0] == false && isBoardFlipped == false)
             {
-                //thinkAndPlayMove();
+                softSave();
+                isMoveSearchRunning == true;
+
+                moveSearch(maxDepth);
+
+                softLoad();
+                isChessPieceSelected = true;
+                selectedPieceX = bestMoveFromX[maxDepth];
+                selectedPieceY = bestMoveFromY[maxDepth];
+
+                std::cout << bestMoveFromY[maxDepth] << " " << bestMoveFromX[maxDepth];
+                std::cout << "\n";
+                std::cout << bestMoveToY[maxDepth] << " " << bestMoveToX[maxDepth];
+                std::cout << "\n\n";
+
+                updateViableMoves(0);
+
+                isMoveSearchRunning == false;
+
+                pieceMove(bestMoveToY[maxDepth], bestMoveToX[maxDepth], 0);
             }
         }
         
@@ -4127,6 +4407,7 @@ int main(int, char**)
                 if (isChessPieceSelected == true && isChessSquareViableMove[Y][X] == true)
                 {
                     pieceMove(Y, X, 0);
+                    moveNumber = 0;
                 }
 
                 //Piece Deselection
@@ -4140,7 +4421,7 @@ int main(int, char**)
                 if (isChessPieceSelected == false)
                 {
                     //White
-                    if (isWhitesTurn == true && chessBoard[Y][X][0] != 0 && (chessBoard[Y][X][0] % 10 == 0 || chessBoard[Y][X][0] % 10 == 2))
+                    if (isWhitesTurn[0] == true && chessBoard[Y][X][0] != 0 && (chessBoard[Y][X][0] % 10 == 0 || chessBoard[Y][X][0] % 10 == 2))
                     {
                         isChessPieceSelected = true;
                         selectedPieceX = X;
@@ -4148,7 +4429,7 @@ int main(int, char**)
                         updateViableMoves(0);
                     }
                     //Black
-                    if (isWhitesTurn == false && chessBoard[Y][X][0] != 0 && (chessBoard[Y][X][0] % 10 == 1 || chessBoard[Y][X][0] % 10 == 3))
+                    if (isWhitesTurn[0] == false && chessBoard[Y][X][0] != 0 && (chessBoard[Y][X][0] % 10 == 1 || chessBoard[Y][X][0] % 10 == 3))
                     {
                         isChessPieceSelected = true;
                         selectedPieceX = X;
